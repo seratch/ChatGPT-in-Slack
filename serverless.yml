@@ -1,0 +1,66 @@
+frameworkVersion: '3'
+service: slack-chat-gpt-bot
+provider:
+  name: aws
+  runtime: python3.9
+  region: us-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+            - lambda:InvokeAsync
+          Resource: "*"
+        - Effect: Allow
+          Action:
+            - 's3:ListBucket'
+            - 's3:GetObject'
+            - 's3:GetObjectAcl'
+            - 's3:PutObject'
+            - 's3:PutObjectAcl'
+            - 's3:ReplicateObject'
+            - 's3:DeleteObject'
+          Resource:
+            - arn:aws:s3:::${env:SLACK_INSTALLATION_S3_BUCKET_NAME}
+            - arn:aws:s3:::${env:SLACK_INSTALLATION_S3_BUCKET_NAME}/*
+            - arn:aws:s3:::${env:SLACK_STATE_S3_BUCKET_NAME}
+            - arn:aws:s3:::${env:SLACK_STATE_S3_BUCKET_NAME}/*
+            - arn:aws:s3:::${env:OPENAI_S3_BUCKET_NAME}
+            - arn:aws:s3:::${env:OPENAI_S3_BUCKET_NAME}/*
+  environment:
+    SERVERLESS_STAGE: ${opt:stage, 'prod'}
+    SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
+    SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
+    SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
+    SLACK_SCOPES: ${env:SLACK_SCOPES}
+    SLACK_INSTALLATION_S3_BUCKET_NAME: ${env:SLACK_INSTALLATION_S3_BUCKET_NAME}
+    SLACK_STATE_S3_BUCKET_NAME: ${env:SLACK_STATE_S3_BUCKET_NAME}
+    OPENAI_S3_BUCKET_NAME: ${env:OPENAI_S3_BUCKET_NAME}
+
+functions:
+  app:
+    handler: app_prod.handler
+    events:
+      - httpApi:
+          path: /slack/events
+          method: post
+      - httpApi:
+          path: /slack/install
+          method: get
+      - httpApi:
+          path: /slack/oauth_redirect
+          method: get
+
+package:
+  patterns:
+    - "!.venv/**"
+    - "!node_modules/**"
+    - "!.idea/**"
+
+plugins:
+  - serverless-python-requirements
+custom:
+  pythonRequirements:
+    zip: true
+    slim: true

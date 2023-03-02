@@ -1,0 +1,17 @@
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+*.py[cod]
+__pycache__/
+.venv*
+.env*
+# JetBrains PyCharm settings
+.idea/
+.DS_Store
+node_modules/
+.serverless/
+.requirements.zip
+package.json
+package-lock.json
