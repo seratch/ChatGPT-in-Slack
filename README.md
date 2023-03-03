@@ -35,6 +35,9 @@ export SLACK_APP_TOKEN=xapp-1-...
 export SLACK_BOT_TOKEN=xoxb-...
 # Visit https://platform.openai.com/account/api-keys for this token
 export OPENAI_API_KEY=sk-...
+# Optional: include priming instructions for ChatGPT to fine tune the bot purpose
+export SYSTEM_TEXT="You proofread text. When you receive a message, you will check
+for mistakes and make suggestion to improve the language of the given text"
 
 python -m venv .venv
 source .venv/bin/activate
