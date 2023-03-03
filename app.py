@@ -3,6 +3,7 @@ import os
 from slack_bolt import App, Ack, BoltContext
 from typing import Dict
 from slack_sdk.web import WebClient
+from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 from internals import (
     post_wip_message,
     call_openai,
@@ -63,7 +64,7 @@ def start_convo(
             user=context.user_id,
         )
     except Exception as e:
-        text = f"Failed to start a conversations with ChatGPT: {e}"
+        text = f"Failed to start a conversation with ChatGPT: {e}"
         logger.exception(text, e)
         if wip_reply is not None:
             client.chat_update(
@@ -97,7 +98,7 @@ def reply_if_necessary(
         )
         messages = []
         user_id = context.user_id
-        last_assistant_idx = 0
+        last_assistant_idx = -1
         for idx, reply in enumerate(replies.get("messages", [])):
             maybe_event_type = reply.get("metadata", {}).get("event_type")
             if maybe_event_type == "chat-gpt-convo":
@@ -115,6 +116,9 @@ def reply_if_necessary(
                             user_id = new_user_id
                     messages = maybe_new_messages
                     last_assistant_idx = idx
+
+        if last_assistant_idx == -1:
+            return
 
         for reply in replies.get("messages", [])[(last_assistant_idx + 1) :]:
             messages.append({"content": reply.get("text"), "role": "user"})
@@ -180,7 +184,9 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
 
-    app = App(token=os.environ["SLACK_BOT_TOKEN"])
+    client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
+    client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
+    app = App(client=client)
     register_listeners(app)
 
     @app.middleware
