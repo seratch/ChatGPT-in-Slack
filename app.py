@@ -19,11 +19,13 @@ from internals import (
 def just_ack(ack: Ack):
     ack()
 
+
 DEFAULT_SYSTEM_TEXT = """
 You are a bot in a slack chat room. You might receive messages from multiple people.
 Each message has the author id prepended, like this: "<@U1234> message text".
 """
 SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
+
 
 def start_convo(
     context: BoltContext, payload: dict, client: WebClient, logger: logging.Logger
@@ -43,7 +45,7 @@ def start_convo(
 
         messages = [
             {"role": "system", "content": SYSTEM_TEXT},
-            {"role": "user", "content": payload["text"]}
+            {"role": "user", "content": payload["text"]},
         ]
         wip_reply = post_wip_message(
             client=client,

@@ -8,12 +8,15 @@ from slack_sdk.web import WebClient
 # Internal functions
 #
 
+MAX_TOKENS = 1024
+GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
+
 
 def call_openai(api_key: str, messages: List[Dict[str, str]], user: str):
-    max_tokens = 1024
-
-    # Remove old user messages to make sure we have room for max_tokens 
-    while num_tokens_from_messages(messages) >= 4096 - max_tokens:
+    # Remove old user messages to make sure we have room for max_tokens
+    # See also: https://platform.openai.com/docs/guides/chat/introduction
+    # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
+    while calculate_num_tokens(messages) >= 4096 - MAX_TOKENS:
         removed = False
         for i, message in enumerate(messages):
             if message["role"] == "user":
@@ -30,7 +33,7 @@ def call_openai(api_key: str, messages: List[Dict[str, str]], user: str):
         messages=messages,
         top_p=1,
         n=1,
-        max_tokens=max_tokens,
+        max_tokens=MAX_TOKENS,
         temperature=1,
         presence_penalty=0,
         frequency_penalty=0,
@@ -75,16 +78,21 @@ def update_wip_message(
         },
     )
 
-def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301"):
+
+def calculate_num_tokens(
+    messages: List[Dict[str, str]],
+    model: str = GPT_3_5_TURBO_0301_MODEL,
+) -> int:
     """Returns the number of tokens used by a list of messages."""
     try:
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
         encoding = tiktoken.get_encoding("cl100k_base")
-    if model == "gpt-3.5-turbo-0301":  # note: future models may deviate from this
+    if model == GPT_3_5_TURBO_0301_MODEL:  # note: future models may deviate from this
         num_tokens = 0
         for message in messages:
-            num_tokens += 4  # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            # every message follows <im_start>{role/name}\n{content}<im_end>\n
+            num_tokens += 4
             for key, value in message.items():
                 num_tokens += len(encoding.encode(value))
                 if key == "name":  # if there's a name, the role is omitted
@@ -92,8 +100,13 @@ def num_tokens_from_messages(messages, model="gpt-3.5-turbo-0301"):
         num_tokens += 2  # every reply is primed with <im_start>assistant
         return num_tokens
     else:
-        raise NotImplementedError(f"""num_tokens_from_messages() is not presently implemented for model {model}.
-See https://github.com/openai/openai-python/blob/main/chatml.md for information on how messages are converted to tokens.""")
+        error = (
+            f"Calculating the number of tokens for for model {model} is not yet supported. "
+            "See https://github.com/openai/openai-python/blob/main/chatml.md "
+            "for information on how messages are converted to tokens."
+        )
+        raise NotImplementedError(error)
+
 
 def format_assistant_reply(content: str) -> str:
     result = content
