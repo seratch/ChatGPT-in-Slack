@@ -36,7 +36,7 @@ def call_openai(
     response = openai.ChatCompletion.create(
         api_key=api_key,
         model="gpt-3.5-turbo",
-        request_timeout=20,  # 20 seconds
+        request_timeout=30,  # seconds
         messages=messages,
         top_p=1,
         n=1,

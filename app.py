@@ -28,7 +28,7 @@ Each message has the author id prepended, like this: "<@U1234> message text".
 """
 SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
 
-TIMEOUT_ERROR_MESSAGE = "Sorry! It looks like OpenAI didn't respond within 20 seconds. Please try again later. :bow:"
+TIMEOUT_ERROR_MESSAGE = "Sorry! It looks like OpenAI didn't respond within 30 seconds. Please try again later. :bow:"
 
 
 def start_convo(
@@ -239,7 +239,7 @@ if __name__ == "__main__":
 
     client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
     client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
-    app = App(client=client)
+    app = App(client=client, process_before_response=True)
     register_listeners(app)
 
     @app.middleware
