@@ -161,7 +161,8 @@ def reply_if_necessary(
         if len(filtered_reply_messages) == last_assistant_idx + 1:
             return
 
-        for reply in filtered_reply_messages[(last_assistant_idx + 1) :]:
+        start_idx = last_assistant_idx + 1
+        for reply in filtered_reply_messages[start_idx:]:
             messages.append({"content": reply.get("text"), "role": "user"})
 
         wip_reply = post_wip_message(

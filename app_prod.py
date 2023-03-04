@@ -1,6 +1,6 @@
 # Unzip the dependencies managed by serverless-python-requirements
 try:
-    import unzip_requirements
+    import unzip_requirements  # noqa: F401
 except ImportError:
     pass
 
@@ -63,17 +63,20 @@ def handler(event, context_):
             )
             api_key = s3_response["Body"].read().decode("utf-8")
             context["OPENAI_API_KEY"] = api_key
-        except:
+        except:  # noqa: E722
             context["OPENAI_API_KEY"] = None
         next_()
 
     @app.event("app_home_opened")
     def render_home_tab(client: WebClient, context: BoltContext):
-        text = "To enable this app in this Slack workspace, you need to save your OpenAI API key. Visit <https://platform.openai.com/account/api-keys|your developer page> to grap your key!"
+        text = (
+            "To enable this app in this Slack workspace, you need to save your OpenAI API key. "
+            "Visit <https://platform.openai.com/account/api-keys|your developer page> to grap your key!"
+        )
         try:
             s3_client.get_object(Bucket=openai_bucket_name, Key=context.team_id)
             text = "This app is ready to use in this workspace :raised_hands:"
-        except:
+        except:  # noqa: E722
             pass
 
         client.views_publish(
