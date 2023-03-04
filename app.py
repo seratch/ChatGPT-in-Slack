@@ -1,5 +1,7 @@
 import logging
 import os
+
+from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext
 from typing import Dict
 from slack_sdk.web import WebClient
@@ -25,6 +27,8 @@ You are a bot in a slack chat room. You might receive messages from multiple peo
 Each message has the author id prepended, like this: "<@U1234> message text".
 """
 SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
+
+TIMEOUT_ERROR_MESSAGE = "Sorry! It looks like OpenAI didn't respond within 20 seconds. Please try again later. :bow:"
 
 
 def start_convo(
@@ -58,6 +62,7 @@ def start_convo(
             api_key=openai_api_key,
             messages=messages,
             user=context.user_id,
+            logger=logger,
         )
         assistant_reply: Dict[str, str] = response["choices"][0]["message"]
         assistant_reply_text = format_assistant_reply(assistant_reply["content"])
@@ -73,6 +78,13 @@ def start_convo(
             messages=messages,
             user=context.user_id,
         )
+    except Timeout:
+        if wip_reply is not None:
+            client.chat_update(
+                channel=context.channel_id,
+                ts=wip_reply["message"]["ts"],
+                text=TIMEOUT_ERROR_MESSAGE,
+            )
     except Exception as e:
         text = f"Failed to start a conversation with ChatGPT: {e}"
         logger.exception(text, e)
@@ -95,6 +107,12 @@ def reply_if_necessary(
         thread_ts = payload.get("thread_ts")
         if thread_ts is None:
             return
+        if (
+            payload.get("bot_id") is not None
+            and payload.get("bot_id") != context.bot_id
+        ):
+            # Skip a new message by a different app
+            return
 
         openai_api_key = context.get("OPENAI_API_KEY")
         if openai_api_key is None:
@@ -109,9 +127,15 @@ def reply_if_necessary(
         messages = []
         user_id = context.user_id
         last_assistant_idx = -1
-        for idx, reply in enumerate(replies.get("messages", [])):
+        reply_messages = replies.get("messages", [])
+        indices_to_remove = []
+        for idx, reply in enumerate(reply_messages):
             maybe_event_type = reply.get("metadata", {}).get("event_type")
             if maybe_event_type == "chat-gpt-convo":
+                if context.bot_id != reply.get("bot_id"):
+                    # Remove messages by a different app
+                    indices_to_remove.append(idx)
+                    continue
                 maybe_new_messages = (
                     reply.get("metadata", {}).get("event_payload", {}).get("messages")
                 )
@@ -130,7 +154,14 @@ def reply_if_necessary(
         if last_assistant_idx == -1:
             return
 
-        for reply in replies.get("messages", [])[(last_assistant_idx + 1) :]:
+        filtered_reply_messages = []
+        for idx, reply in enumerate(reply_messages):
+            if idx not in indices_to_remove:
+                filtered_reply_messages.append(reply)
+        if len(filtered_reply_messages) == last_assistant_idx + 1:
+            return
+
+        for reply in filtered_reply_messages[(last_assistant_idx + 1) :]:
             messages.append({"content": reply.get("text"), "role": "user"})
 
         wip_reply = post_wip_message(
@@ -138,12 +169,13 @@ def reply_if_necessary(
             channel=context.channel_id,
             thread_ts=payload["ts"],
             messages=messages,
-            user=context.user_id,
+            user=user_id,
         )
         response = call_openai(
             api_key=openai_api_key,
             messages=messages,
-            user=context.user_id,
+            user=user_id,
+            logger=logger,
         )
 
         latest_replies = client.conversations_replies(
@@ -154,6 +186,10 @@ def reply_if_necessary(
         )
         if latest_replies.get("messages", [])[-1]["ts"] != wip_reply["message"]["ts"]:
             # Since a new reply will come soon, this app abandons this reply
+            client.chat_delete(
+                channel=context.channel_id,
+                ts=wip_reply["message"]["ts"],
+            )
             return
 
         assistant_reply: Dict[str, str] = response["choices"][0]["message"]
@@ -167,8 +203,15 @@ def reply_if_necessary(
             ts=wip_reply["message"]["ts"],
             text=assistant_reply_text,
             messages=messages,
-            user=context.user_id,
+            user=user_id,
         )
+    except Timeout:
+        if wip_reply is not None:
+            client.chat_update(
+                channel=context.channel_id,
+                ts=wip_reply["message"]["ts"],
+                text=TIMEOUT_ERROR_MESSAGE,
+            )
     except Exception as e:
         text = f"Failed to reply in the conversation with ChatGPT: {e}"
         logger.exception(text, e)

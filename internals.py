@@ -1,3 +1,6 @@
+import logging
+import time
+
 import openai
 import tiktoken
 import re
@@ -12,7 +15,9 @@ MAX_TOKENS = 1024
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
 
 
-def call_openai(api_key: str, messages: List[Dict[str, str]], user: str):
+def call_openai(
+    api_key: str, messages: List[Dict[str, str]], user: str, logger: logging.Logger
+):
     # Remove old user messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
@@ -27,9 +32,11 @@ def call_openai(api_key: str, messages: List[Dict[str, str]], user: str):
             # Fall through and let the OpenAI error handler deal with it
             break
 
-    return openai.ChatCompletion.create(
+    start = time.time()
+    response = openai.ChatCompletion.create(
         api_key=api_key,
         model="gpt-3.5-turbo",
+        request_timeout=20,  # 20 seconds
         messages=messages,
         top_p=1,
         n=1,
@@ -40,6 +47,9 @@ def call_openai(api_key: str, messages: List[Dict[str, str]], user: str):
         logit_bias={},
         user=user,
     )
+    elapsed_time = time.time() - start
+    logger.debug(f"Spent {elapsed_time} seconds for an OpenAI API call")
+    return response
 
 
 def post_wip_message(
