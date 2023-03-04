@@ -64,3 +64,4 @@ custom:
   pythonRequirements:
     zip: true
     slim: true
+    dockerizePip: true  # This option must be enabled for including Linux compatible *.so files
