@@ -5,7 +5,8 @@ import openai
 import tiktoken
 import re
 from typing import List, Dict
-from slack_sdk.web import WebClient
+from openai.openai_object import OpenAIObject
+from slack_sdk.web import WebClient, SlackResponse
 
 #
 # Internal functions
@@ -28,7 +29,7 @@ def call_openai(
     messages: List[Dict[str, str]],
     user: str,
     logger: logging.Logger,
-):
+) -> OpenAIObject:
     # Remove old user messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
@@ -44,7 +45,7 @@ def call_openai(
             break
 
     start = time.time()
-    response = openai.ChatCompletion.create(
+    response: OpenAIObject = openai.ChatCompletion.create(
         api_key=api_key,
         model="gpt-3.5-turbo",
         request_timeout=25,  # seconds
@@ -69,7 +70,7 @@ def post_wip_message(
     thread_ts: str,
     messages: List[Dict[str, str]],
     user: str,
-):
+) -> SlackResponse:
     return client.chat_postMessage(
         channel=channel,
         thread_ts=thread_ts,
@@ -88,8 +89,8 @@ def update_wip_message(
     text: str,
     messages: List[Dict[str, str]],
     user: str,
-):
-    client.chat_update(
+) -> SlackResponse:
+    return client.chat_update(
         channel=channel,
         ts=ts,
         text=text,

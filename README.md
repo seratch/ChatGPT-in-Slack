@@ -59,6 +59,14 @@ After going through the above local development process, you can deploy the app 
 The `Dockerfile` is designed to establish a WebSocket connection with Slack via Socket Mode.
 This means that there's no need to provide a public URL for communication with Slack.
 
+## Contributions
+
+You're always welcome to contribute! :raised_hands:
+When you make changes to the code in this project, please keep these points in mind:
+- Please try to avoid making changes that would bring any breaking changes to the app's behavior. If such changes are unavoidable due to critical reasons such as security issues, please start a discussion in GitHub Issues before making significant changes.
+- Please write some unit tests, especially for the ones that don't require any mock objects.
+- Before committing your changes, be sure to run `./validate.sh`.
+
 ## The License
 
 The MIT License

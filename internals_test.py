@@ -2,7 +2,7 @@ from internals import format_assistant_reply, format_openai_message_content
 
 
 def test_format_assistant_reply():
-    for (content, expected) in [
+    for content, expected in [
         (
             "\n\nSorry, I cannot answer the question.",
             "Sorry, I cannot answer the question.",
@@ -22,7 +22,7 @@ def test_format_assistant_reply():
 
 def test_format_openai_message_content():
     # https://github.com/seratch/ChatGPT-in-Slack/pull/5
-    for (content, expected) in [
+    for content, expected in [
         (
             """#include &lt;stdio.h&gt;
 int main(int argc, char *argv[])

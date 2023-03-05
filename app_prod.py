@@ -1,6 +1,6 @@
 # Unzip the dependencies managed by serverless-python-requirements
 try:
-    import unzip_requirements  # noqa: F401
+    import unzip_requirements  # type:ignore
 except ImportError:
     pass
 
@@ -154,7 +154,8 @@ def handler(event, context_):
             logger.exception(e)
 
     app.view("configure")(
-        ack=validate_api_key_registration, lazy=[save_api_key_registration]
+        ack=validate_api_key_registration,
+        lazy=[save_api_key_registration],
     )
 
     slack_handler = SlackRequestHandler(app=app)
