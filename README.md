@@ -63,9 +63,9 @@ This means that there's no need to provide a public URL for communication with S
 
 You're always welcome to contribute! :raised_hands:
 When you make changes to the code in this project, please keep these points in mind:
-- Please try to avoid making changes that would bring any breaking changes to the app's behavior. If such changes are unavoidable due to critical reasons such as security issues, please start a discussion in GitHub Issues before making significant changes.
-- Please write some unit tests, especially for the ones that don't require any mock objects.
-- Before committing your changes, be sure to run `./validate.sh`.
+- When making changes to the app, please avoid anything that could cause breaking behavior. If such changes are absolutely necessary due to critical reasons, like security issues, please start a discussion in GitHub Issues before making significant alterations.
+- When you have the chance, please write some unit tests. Especially when you touch `internals.py` and add/edit the code that do not call any web APIs, writing tests should be relatively easy.
+- Before committing your changes, be sure to run `./validate.sh`. The script runs black (code formatter), flake8 and pytype (static code analyzers).
 
 ## The License
 
