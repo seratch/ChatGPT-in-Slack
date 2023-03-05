@@ -13,6 +13,8 @@ def test_format_assistant_reply():
             "\n\n```java\nSystem.out.println(123);\n```",
             "```\nSystem.out.println(123);\n```",
         ),
+        ("\n\n```C++\n#include <iostream>\n```", "```\n#include <iostream>\n```"),
+        ("\n\n```c++\n#include <iostream>\n```", "```\n#include <iostream>\n```"),
     ]:
         result = format_assistant_reply(content)
         assert result == expected
