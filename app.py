@@ -11,6 +11,7 @@ from internals import (
     call_openai,
     format_assistant_reply,
     update_wip_message,
+    format_openai_message_content,
 )
 
 #
@@ -49,7 +50,7 @@ def start_convo(
 
         messages = [
             {"role": "system", "content": SYSTEM_TEXT},
-            {"role": "user", "content": payload["text"]},
+            {"role": "user", "content": format_openai_message_content(payload["text"])},
         ]
         wip_reply = post_wip_message(
             client=client,
@@ -163,7 +164,12 @@ def reply_if_necessary(
 
         start_idx = last_assistant_idx + 1
         for reply in filtered_reply_messages[start_idx:]:
-            messages.append({"content": reply.get("text"), "role": "user"})
+            messages.append(
+                {
+                    "content": format_openai_message_content(reply.get("text")),
+                    "role": "user",
+                }
+            )
 
         wip_reply = post_wip_message(
             client=client,

@@ -15,16 +15,20 @@ MAX_TOKENS = 1024
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
 
 
-def call_openai(
-    api_key: str, messages: List[Dict[str, str]], user: str, logger: logging.Logger
-):
+def format_openai_message_content(content: str) -> str:
+    if content is None:
+        return None
     # Unescape &, < and >, since Slack replaces these with their HTML equivalents
     # See also: https://api.slack.com/reference/surfaces/formatting#escaping
-    for message in messages:
-        message["content"] = message["content"].replace("&lt;", "<")
-        message["content"] = message["content"].replace("&gt;", ">")
-        message["content"] = message["content"].replace("&amp;", "&")
+    return content.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
+
+def call_openai(
+    api_key: str,
+    messages: List[Dict[str, str]],
+    user: str,
+    logger: logging.Logger,
+):
     # Remove old user messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
@@ -126,7 +130,7 @@ def calculate_num_tokens(
 
 
 def format_assistant_reply(content: str) -> str:
-    result = content
+    result = format_openai_message_content(content)
     for o, n in [
         ("^\n+", ""),
         ("```[Rr]ust\n", "```\n"),
