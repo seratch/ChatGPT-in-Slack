@@ -144,6 +144,7 @@ def format_assistant_reply(content: str) -> str:
         ("```[Oo]objective[Cc]\n", "```\n"),
         ("```[Cc]\n", "```\n"),
         ("```[Cc][+][+]\n", "```\n"),
+        ("```[Cc][Pp][Pp]\n", "```\n"),
         ("```[Cc]sharp\n", "```\n"),
         ("```[Mm]atlab\n", "```\n"),
         ("```[Ss][Qq][Ll]\n", "```\n"),
