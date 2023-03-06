@@ -13,8 +13,16 @@ def test_format_assistant_reply():
             "\n\n```java\nSystem.out.println(123);\n```",
             "```\nSystem.out.println(123);\n```",
         ),
+        ("\n\n```C\n#include <stdio.h>\n```", "```\n#include <stdio.h>\n```"),
+        ("\n\n```c\n#include <stdio.h>\n```", "```\n#include <stdio.h>\n```"),
         ("\n\n```C++\n#include <iostream>\n```", "```\n#include <iostream>\n```"),
         ("\n\n```c++\n#include <iostream>\n```", "```\n#include <iostream>\n```"),
+        ("\n\n```Cpp\n#include <iostream>\n```", "```\n#include <iostream>\n```"),
+        ("\n\n```cpp\n#include <iostream>\n```", "```\n#include <iostream>\n```"),
+        ("\n\n```Csharp\nusing System;\n```", "```\nusing System;\n```"),
+        ("\n\n```csharp\nusing System;\n```", "```\nusing System;\n```"),
+        ("\n\n```Matlab\ndisp('foo');\n```", "```\ndisp('foo');\n```"),
+        ("\n\n```matlab\ndisp('foo');\n```", "```\ndisp('foo');\n```"),
     ]:
         result = format_assistant_reply(content)
         assert result == expected
