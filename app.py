@@ -29,7 +29,15 @@ Each message has the author id prepended, like this: "<@U1234> message text".
 """
 SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
 
-TIMEOUT_ERROR_MESSAGE = "Sorry! It looks like OpenAI didn't respond within 25 seconds. Please try again later. :bow:"
+DEFAULT_OPENAI_TIMEOUT_SECONDS = 30
+OPENAI_TIMEOUT_SECONDS = int(os.environ.get(
+    "OPENAI_TIMEOUT_SECONDS", DEFAULT_OPENAI_TIMEOUT_SECONDS
+))
+
+TIMEOUT_ERROR_MESSAGE = (
+    f"Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
+    "Please try again later. :bow:"
+)
 
 
 def start_convo(
@@ -61,6 +69,7 @@ def start_convo(
         )
         response = call_openai(
             api_key=openai_api_key,
+            openai_timeout_seconds=OPENAI_TIMEOUT_SECONDS,
             messages=messages,
             user=context.user_id,
             logger=logger,
@@ -180,6 +189,7 @@ def reply_if_necessary(
         )
         response = call_openai(
             api_key=openai_api_key,
+            openai_timeout_seconds=OPENAI_TIMEOUT_SECONDS,
             messages=messages,
             user=user_id,
             logger=logger,

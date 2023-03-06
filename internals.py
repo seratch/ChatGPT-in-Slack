@@ -26,6 +26,7 @@ def format_openai_message_content(content: str) -> str:
 
 def call_openai(
     api_key: str,
+    openai_timeout_seconds: int,
     messages: List[Dict[str, str]],
     user: str,
     logger: logging.Logger,
@@ -48,7 +49,7 @@ def call_openai(
     response: OpenAIObject = openai.ChatCompletion.create(
         api_key=api_key,
         model="gpt-3.5-turbo",
-        request_timeout=25,  # seconds
+        request_timeout=openai_timeout_seconds,  # seconds
         messages=messages,
         top_p=1,
         n=1,

@@ -37,10 +37,12 @@ provider:
     SLACK_INSTALLATION_S3_BUCKET_NAME: ${env:SLACK_INSTALLATION_S3_BUCKET_NAME}
     SLACK_STATE_S3_BUCKET_NAME: ${env:SLACK_STATE_S3_BUCKET_NAME}
     OPENAI_S3_BUCKET_NAME: ${env:OPENAI_S3_BUCKET_NAME}
+    OPENAI_TIMEOUT_SECONDS: 10
 
 functions:
   app:
     handler: app_prod.handler
+    timeout: 12
     events:
       - httpApi:
           path: /slack/events

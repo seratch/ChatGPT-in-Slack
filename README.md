@@ -39,7 +39,10 @@ export SLACK_APP_TOKEN=xapp-1-...
 export SLACK_BOT_TOKEN=xoxb-...
 # Visit https://platform.openai.com/account/api-keys for this token
 export OPENAI_API_KEY=sk-...
-# Optional: include priming instructions for ChatGPT to fine tune the bot purpose
+
+# Optional: You can adjust the timeout seconds for OpenAI calls (default: 30; 0 works as forever)
+export OPENAI_TIMEOUT_SECONDS=60
+# Optional: You can include priming instructions for ChatGPT to fine tune the bot purpose
 export SYSTEM_TEXT="You proofread text. When you receive a message, you will check
 for mistakes and make suggestion to improve the language of the given text"
 
