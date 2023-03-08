@@ -71,7 +71,9 @@ def register_revocation_handlers(app: App):
             try:
                 s3_client.delete_object(Bucket=openai_bucket_name, Key=context.team_id)
             except Exception as e:
-                logger.error(f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})")
+                logger.error(
+                    f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})"
+                )
 
     @app.event("app_uninstalled")
     def handle_app_uninstalled_events(
@@ -85,7 +87,9 @@ def register_revocation_handlers(app: App):
         try:
             s3_client.delete_object(Bucket=openai_bucket_name, Key=context.team_id)
         except Exception as e:
-            logger.error(f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})")
+            logger.error(
+                f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})"
+            )
 
 
 def handler(event, context_):
