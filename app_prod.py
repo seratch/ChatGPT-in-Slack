@@ -46,6 +46,48 @@ client = WebClient()
 client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
 
 
+def register_revocation_handlers(app: App):
+    # Handle uninstall events and token revocations
+    @app.event("tokens_revoked")
+    def handle_tokens_revoked_events(
+        event: dict,
+        context: BoltContext,
+        logger: logging.Logger,
+    ):
+        user_ids = event.get("tokens", {}).get("oauth", [])
+        if len(user_ids) > 0:
+            for user_id in user_ids:
+                app.installation_store.delete_installation(
+                    enterprise_id=context.enterprise_id,
+                    team_id=context.team_id,
+                    user_id=user_id,
+                )
+        bots = event.get("tokens", {}).get("bot", [])
+        if len(bots) > 0:
+            app.installation_store.delete_bot(
+                enterprise_id=context.enterprise_id,
+                team_id=context.team_id,
+            )
+            try:
+                s3_client.delete_object(Bucket=openai_bucket_name, Key=context.team_id)
+            except Exception as e:
+                logger.error(f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})")
+
+    @app.event("app_uninstalled")
+    def handle_app_uninstalled_events(
+        context: BoltContext,
+        logger: logging.Logger,
+    ):
+        app.installation_store.delete_all(
+            enterprise_id=context.enterprise_id,
+            team_id=context.team_id,
+        )
+        try:
+            s3_client.delete_object(Bucket=openai_bucket_name, Key=context.team_id)
+        except Exception as e:
+            logger.error(f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})")
+
+
 def handler(event, context_):
     app = App(
         process_before_response=True,
@@ -54,6 +96,7 @@ def handler(event, context_):
     )
     app.oauth_flow.settings.install_page_rendering_enabled = False
     register_listeners(app)
+    register_revocation_handlers(app)
 
     @app.middleware
     def set_s3_openai_api_key(context: BoltContext, next_):

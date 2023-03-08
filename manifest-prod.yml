@@ -28,10 +28,12 @@ settings:
     bot_events:
       - app_home_opened
       - app_mention
+      - app_uninstalled
       - message.channels
       - message.groups
       - message.im
       - message.mpim
+      - tokens_revoked
   interactivity:
     is_enabled: true
     request_url: https://TODO.amazonaws.com/slack/events

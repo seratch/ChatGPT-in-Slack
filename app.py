@@ -30,9 +30,9 @@ Each message has the author id prepended, like this: "<@U1234> message text".
 SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
 
 DEFAULT_OPENAI_TIMEOUT_SECONDS = 30
-OPENAI_TIMEOUT_SECONDS = int(os.environ.get(
-    "OPENAI_TIMEOUT_SECONDS", DEFAULT_OPENAI_TIMEOUT_SECONDS
-))
+OPENAI_TIMEOUT_SECONDS = int(
+    os.environ.get("OPENAI_TIMEOUT_SECONDS", DEFAULT_OPENAI_TIMEOUT_SECONDS)
+)
 
 TIMEOUT_ERROR_MESSAGE = (
     f"Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
