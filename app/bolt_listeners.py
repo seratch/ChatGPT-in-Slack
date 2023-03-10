@@ -5,12 +5,13 @@ from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
 from slack_sdk.web import WebClient
 
-from app.env import OPENAI_TIMEOUT_SECONDS, SYSTEM_TEXT, OPENAI_MODEL
+from app.env import OPENAI_TIMEOUT_SECONDS, SYSTEM_TEXT, OPENAI_MODEL, TRANSLATE_MARKDOWN
 from app.i18n import translate
 from app.openai_ops import (
     start_receiving_openai_response,
     format_openai_message_content,
     consume_openai_stream_to_write_reply,
+    slack_to_markdown,
 )
 from app.wip_message import (
     post_wip_message,
@@ -53,9 +54,19 @@ def start_convo(
 
         # Replace placeholder for Slack user ID in the system prompt
         new_system_text = SYSTEM_TEXT.format(bot_user_id=context.bot_user_id)
+
+        # Translate format hint in system prompt
+        if TRANSLATE_MARKDOWN:
+            new_system_text = slack_to_markdown(new_system_text)
+
         messages = [
             {"role": "system", "content": new_system_text},
-            {"role": "user", "content": format_openai_message_content(payload["text"])},
+            {
+                "role": "user",
+                "content": format_openai_message_content(
+                    payload["text"], TRANSLATE_MARKDOWN
+                ),
+            },
         ]
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
@@ -82,6 +93,7 @@ def start_convo(
             messages=messages,
             steam=steam,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+            translate_markdown=TRANSLATE_MARKDOWN,
         )
 
     except Timeout:
@@ -195,7 +207,9 @@ def reply_if_necessary(
         for reply in filtered_reply_messages:
             messages.append(
                 {
-                    "content": format_openai_message_content(reply.get("text")),
+                    "content": format_openai_message_content(
+                        reply.get("text"), TRANSLATE_MARKDOWN
+                    ),
                     "role": "user",
                 }
             )
@@ -240,6 +254,7 @@ def reply_if_necessary(
             messages=messages,
             steam=steam,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+            translate_markdown=TRANSLATE_MARKDOWN,
         )
 
     except Timeout:
