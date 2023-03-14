@@ -1,3 +1,4 @@
+import threading
 import time
 
 import openai
@@ -27,6 +28,7 @@ def format_openai_message_content(content: str) -> str:
 
 
 def start_receiving_openai_response(
+    *,
     api_key: str,
     messages: List[Dict[str, str]],
     user: str,
@@ -61,7 +63,8 @@ def start_receiving_openai_response(
     )
 
 
-def write_reply(
+def consume_openai_stream_to_write_reply(
+    *,
     client: WebClient,
     wip_reply: dict,
     context: BoltContext,
@@ -74,6 +77,7 @@ def write_reply(
     assistant_reply: Dict[str, str] = {"content": ""}
     messages.append(assistant_reply)
     word_count = 0
+    threads = []
     try:
         for chunk in steam:
             spent_seconds = time.time() - start_time
@@ -88,19 +92,26 @@ def write_reply(
             elif delta.get("content") is not None:
                 word_count += 1
                 assistant_reply["content"] += delta.get("content")
-                if word_count > 100:
-                    assistant_reply_text = format_assistant_reply(
-                        assistant_reply["content"]
-                    )
-                    wip_reply["message"]["text"] = assistant_reply_text
-                    update_wip_message(
-                        client=client,
-                        channel=context.channel_id,
-                        ts=wip_reply["message"]["ts"],
-                        text=assistant_reply_text,
-                        messages=messages,
-                        user=user_id,
-                    )
+                if word_count > 15:
+
+                    def update_message():
+                        assistant_reply_text = format_assistant_reply(
+                            assistant_reply["content"]
+                        )
+                        wip_reply["message"]["text"] = assistant_reply_text
+                        update_wip_message(
+                            client=client,
+                            channel=context.channel_id,
+                            ts=wip_reply["message"]["ts"],
+                            text=assistant_reply_text,
+                            messages=messages,
+                            user=user_id,
+                        )
+
+                    thread = threading.Thread(target=update_message)
+                    thread.daemon = True
+                    thread.start()
+                    threads.append(thread)
                     word_count = 0
         assistant_reply_text = format_assistant_reply(assistant_reply["content"])
         wip_reply["message"]["text"] = assistant_reply_text
@@ -113,6 +124,12 @@ def write_reply(
             user=user_id,
         )
     finally:
+        for t in threads:
+            try:
+                if t.is_alive():
+                    t.join()
+            except Exception:
+                pass
         try:
             steam.close()
         except Exception:

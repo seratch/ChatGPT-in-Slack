@@ -9,7 +9,7 @@ from internals import (
     post_wip_message,
     start_receiving_openai_response,
     format_openai_message_content,
-    write_reply,
+    consume_openai_stream_to_write_reply,
 )
 
 #
@@ -39,7 +39,10 @@ TIMEOUT_ERROR_MESSAGE = (
 
 
 def start_convo(
-    context: BoltContext, payload: dict, client: WebClient, logger: logging.Logger
+    context: BoltContext,
+    payload: dict,
+    client: WebClient,
+    logger: logging.Logger,
 ):
     wip_reply = None
     try:
@@ -70,7 +73,7 @@ def start_convo(
             messages=messages,
             user=context.user_id,
         )
-        write_reply(
+        consume_openai_stream_to_write_reply(
             client=client,
             wip_reply=wip_reply,
             context=context,
@@ -216,7 +219,7 @@ def reply_if_necessary(
             )
             return
 
-        write_reply(
+        consume_openai_stream_to_write_reply(
             client=client,
             wip_reply=wip_reply,
             context=context,
