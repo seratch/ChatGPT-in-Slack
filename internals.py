@@ -92,7 +92,7 @@ def consume_openai_stream_to_write_reply(
             elif delta.get("content") is not None:
                 word_count += 1
                 assistant_reply["content"] += delta.get("content")
-                if word_count > 15:
+                if word_count >= 20:
 
                     def update_message():
                         assistant_reply_text = format_assistant_reply(
