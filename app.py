@@ -3,15 +3,13 @@ import os
 
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext
-from typing import Dict
 from slack_sdk.web import WebClient
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 from internals import (
     post_wip_message,
-    call_openai,
-    format_assistant_reply,
-    update_wip_message,
+    start_receiving_openai_response,
     format_openai_message_content,
+    write_reply,
 )
 
 #
@@ -35,7 +33,7 @@ OPENAI_TIMEOUT_SECONDS = int(
 )
 
 TIMEOUT_ERROR_MESSAGE = (
-    f"Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
+    f":warning: Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
     "Please try again later. :bow:"
 )
 
@@ -67,36 +65,47 @@ def start_convo(
             messages=messages,
             user=context.user_id,
         )
-        response = call_openai(
+        steam = start_receiving_openai_response(
             api_key=openai_api_key,
-            openai_timeout_seconds=OPENAI_TIMEOUT_SECONDS,
             messages=messages,
             user=context.user_id,
-            logger=logger,
         )
-        assistant_reply: Dict[str, str] = response["choices"][0]["message"]
-        assistant_reply_text = format_assistant_reply(assistant_reply["content"])
-        messages.append(
-            {"content": assistant_reply_text, "role": assistant_reply["role"]}
+        write_reply(
+            client=client,
+            wip_reply=wip_reply,
+            context=context,
+            user_id=context.actor_user_id,
+            messages=messages,
+            steam=steam,
+            timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
 
-        update_wip_message(
-            client=client,
-            channel=context.channel_id,
-            ts=wip_reply["message"]["ts"],
-            text=assistant_reply_text,
-            messages=messages,
-            user=context.user_id,
-        )
     except Timeout:
         if wip_reply is not None:
+            text = (
+                (
+                    wip_reply.get("message", {}).get("text", "")
+                    if wip_reply is not None
+                    else ""
+                )
+                + "\n\n"
+                + TIMEOUT_ERROR_MESSAGE
+            )
             client.chat_update(
                 channel=context.channel_id,
                 ts=wip_reply["message"]["ts"],
-                text=TIMEOUT_ERROR_MESSAGE,
+                text=text,
             )
     except Exception as e:
-        text = f"Failed to start a conversation with ChatGPT: {e}"
+        text = (
+            (
+                wip_reply.get("message", {}).get("text", "")
+                if wip_reply is not None
+                else ""
+            )
+            + "\n\n"
+            + f":warning: Failed to start a conversation with ChatGPT: {e}"
+        )
         logger.exception(text, e)
         if wip_reply is not None:
             client.chat_update(
@@ -187,12 +196,10 @@ def reply_if_necessary(
             messages=messages,
             user=user_id,
         )
-        response = call_openai(
+        steam = start_receiving_openai_response(
             api_key=openai_api_key,
-            openai_timeout_seconds=OPENAI_TIMEOUT_SECONDS,
             messages=messages,
             user=user_id,
-            logger=logger,
         )
 
         latest_replies = client.conversations_replies(
@@ -209,28 +216,42 @@ def reply_if_necessary(
             )
             return
 
-        assistant_reply: Dict[str, str] = response["choices"][0]["message"]
-        assistant_reply_text = format_assistant_reply(assistant_reply["content"])
-        messages.append(
-            {"content": assistant_reply_text, "role": assistant_reply["role"]}
-        )
-        update_wip_message(
+        write_reply(
             client=client,
-            channel=context.channel_id,
-            ts=wip_reply["message"]["ts"],
-            text=assistant_reply_text,
+            wip_reply=wip_reply,
+            context=context,
+            user_id=user_id,
             messages=messages,
-            user=user_id,
+            steam=steam,
+            timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
+
     except Timeout:
         if wip_reply is not None:
+            text = (
+                (
+                    wip_reply.get("message", {}).get("text", "")
+                    if wip_reply is not None
+                    else ""
+                )
+                + "\n\n"
+                + TIMEOUT_ERROR_MESSAGE
+            )
             client.chat_update(
                 channel=context.channel_id,
                 ts=wip_reply["message"]["ts"],
-                text=TIMEOUT_ERROR_MESSAGE,
+                text=text,
             )
     except Exception as e:
-        text = f"Failed to reply in the conversation with ChatGPT: {e}"
+        text = (
+            (
+                wip_reply.get("message", {}).get("text", "")
+                if wip_reply is not None
+                else ""
+            )
+            + "\n\n"
+            + f":warning: Failed to start a conversation with ChatGPT: {e}"
+        )
         logger.exception(text, e)
         if wip_reply is not None:
             client.chat_update(

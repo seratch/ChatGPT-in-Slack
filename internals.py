@@ -1,11 +1,13 @@
-import logging
 import time
 
 import openai
 import tiktoken
 import re
-from typing import List, Dict
+from typing import List, Dict, Any, Generator
+
+from openai.error import Timeout
 from openai.openai_object import OpenAIObject
+from slack_bolt import BoltContext
 from slack_sdk.web import WebClient, SlackResponse
 
 #
@@ -24,13 +26,11 @@ def format_openai_message_content(content: str) -> str:
     return content.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
 
 
-def call_openai(
+def start_receiving_openai_response(
     api_key: str,
-    openai_timeout_seconds: int,
     messages: List[Dict[str, str]],
     user: str,
-    logger: logging.Logger,
-) -> OpenAIObject:
+) -> Generator[OpenAIObject, Any, None]:
     # Remove old user messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
@@ -45,11 +45,9 @@ def call_openai(
             # Fall through and let the OpenAI error handler deal with it
             break
 
-    start = time.time()
-    response: OpenAIObject = openai.ChatCompletion.create(
+    return openai.ChatCompletion.create(
         api_key=api_key,
         model="gpt-3.5-turbo",
-        request_timeout=openai_timeout_seconds,  # seconds
         messages=messages,
         top_p=1,
         n=1,
@@ -59,10 +57,66 @@ def call_openai(
         frequency_penalty=0,
         logit_bias={},
         user=user,
+        stream=True,
     )
-    elapsed_time = time.time() - start
-    logger.debug(f"Spent {elapsed_time} seconds for an OpenAI API call")
-    return response
+
+
+def write_reply(
+    client: WebClient,
+    wip_reply: dict,
+    context: BoltContext,
+    user_id: str,
+    messages: List[Dict[str, str]],
+    steam: Generator[OpenAIObject, Any, None],
+    timeout_seconds: int,
+):
+    start_time = time.time()
+    assistant_reply: Dict[str, str] = {"content": ""}
+    messages.append(assistant_reply)
+    word_count = 0
+    try:
+        for chunk in steam:
+            spent_seconds = time.time() - start_time
+            if timeout_seconds < spent_seconds:
+                raise Timeout()
+            item = chunk.choices[0]
+            if item.get("finish_reason") is not None:
+                break
+            delta = item.get("delta")
+            if delta.get("role") is not None:
+                assistant_reply["role"] = delta.get("role")
+            elif delta.get("content") is not None:
+                word_count += 1
+                assistant_reply["content"] += delta.get("content")
+                if word_count > 100:
+                    assistant_reply_text = format_assistant_reply(
+                        assistant_reply["content"]
+                    )
+                    wip_reply["message"]["text"] = assistant_reply_text
+                    update_wip_message(
+                        client=client,
+                        channel=context.channel_id,
+                        ts=wip_reply["message"]["ts"],
+                        text=assistant_reply_text,
+                        messages=messages,
+                        user=user_id,
+                    )
+                    word_count = 0
+        assistant_reply_text = format_assistant_reply(assistant_reply["content"])
+        wip_reply["message"]["text"] = assistant_reply_text
+        update_wip_message(
+            client=client,
+            channel=context.channel_id,
+            ts=wip_reply["message"]["ts"],
+            text=assistant_reply_text,
+            messages=messages,
+            user=user_id,
+        )
+    finally:
+        try:
+            steam.close()
+        except Exception:
+            pass
 
 
 def post_wip_message(
@@ -135,25 +189,25 @@ def format_assistant_reply(content: str) -> str:
     result = format_openai_message_content(content)
     for o, n in [
         ("^\n+", ""),
-        ("```[Rr]ust\n", "```\n"),
-        ("```[Rr]uby\n", "```\n"),
-        ("```[Ss]cala\n", "```\n"),
-        ("```[Kk]otlin\n", "```\n"),
-        ("```[Jj]ava\n", "```\n"),
-        ("```[Gg]o\n", "```\n"),
-        ("```[Ss]wift\n", "```\n"),
-        ("```[Oo]objective[Cc]\n", "```\n"),
-        ("```[Cc]\n", "```\n"),
-        ("```[Cc][+][+]\n", "```\n"),
-        ("```[Cc][Pp][Pp]\n", "```\n"),
-        ("```[Cc]sharp\n", "```\n"),
-        ("```[Mm]atlab\n", "```\n"),
-        ("```[Ss][Qq][Ll]\n", "```\n"),
-        ("```[Pp][Hh][Pp]\n", "```\n"),
-        ("```[Pp][Ee][Rr][Ll]\n", "```\n"),
-        ("```[Jj]ava[Ss]cript", "```\n"),
-        ("```[Ty]ype[Ss]cript", "```\n"),
-        ("```[Pp]ython\n", "```\n"),
+        ("```\\s*[Rr]ust\n", "```\n"),
+        ("```\\s*[Rr]uby\n", "```\n"),
+        ("```\\s*[Ss]cala\n", "```\n"),
+        ("```\\s*[Kk]otlin\n", "```\n"),
+        ("```\\s*[Jj]ava\n", "```\n"),
+        ("```\\s*[Gg]o\n", "```\n"),
+        ("```\\s*[Ss]wift\n", "```\n"),
+        ("```\\s*[Oo]objective[Cc]\n", "```\n"),
+        ("```\\s*[Cc]\n", "```\n"),
+        ("```\\s*[Cc][+][+]\n", "```\n"),
+        ("```\\s*[Cc][Pp][Pp]\n", "```\n"),
+        ("```\\s*[Cc]sharp\n", "```\n"),
+        ("```\\s*[Mm]atlab\n", "```\n"),
+        ("```\\s*[Ss][Qq][Ll]\n", "```\n"),
+        ("```\\s*[Pp][Hh][Pp]\n", "```\n"),
+        ("```\\s*[Pp][Ee][Rr][Ll]\n", "```\n"),
+        ("```\\s*[Jj]ava[Ss]cript", "```\n"),
+        ("```\\s*[Ty]ype[Ss]cript", "```\n"),
+        ("```\\s*[Pp]ython\n", "```\n"),
     ]:
         result = re.sub(o, n, result)
     return result
