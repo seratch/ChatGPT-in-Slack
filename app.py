@@ -80,7 +80,7 @@ def start_convo(
             client=client,
             wip_reply=wip_reply,
             context=context,
-            user_id=context.actor_user_id,
+            user_id=context.user_id,
             messages=messages,
             steam=steam,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
