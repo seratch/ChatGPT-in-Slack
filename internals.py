@@ -219,6 +219,7 @@ def format_assistant_reply(content: str) -> str:
         ("```\\s*[Cc][Pp][Pp]\n", "```\n"),
         ("```\\s*[Cc]sharp\n", "```\n"),
         ("```\\s*[Mm]atlab\n", "```\n"),
+        ("```\\s*[Ll]a[Tt]e[Xx]\n", "```\n"),
         ("```\\s*[Ss][Qq][Ll]\n", "```\n"),
         ("```\\s*[Pp][Hh][Pp]\n", "```\n"),
         ("```\\s*[Pp][Ee][Rr][Ll]\n", "```\n"),
