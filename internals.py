@@ -36,7 +36,7 @@ def start_receiving_openai_response(
     # Remove old user messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
-    while calculate_num_tokens(messages) >= 4096 - MAX_TOKENS:
+    while calculate_num_tokens(messages) >= 4096 - MAX_TOKENS - 10:
         removed = False
         for i, message in enumerate(messages):
             if message["role"] == "user":
