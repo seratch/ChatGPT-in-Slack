@@ -24,7 +24,7 @@ def just_ack(ack: Ack):
 DEFAULT_SYSTEM_TEXT = """
 You are a bot in a slack chat room. You might receive messages from multiple people.
 Slack user IDs match the regex `<@U.*?>`.
-Your Slack user ID is <@{BOT_USER_ID}>.
+Your Slack user ID is <@{bot_user_id}>.
 """
 SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
 
@@ -59,7 +59,7 @@ def start_convo(
             return
 
         # Replace placeholder for Slack user ID in the system prompt
-        new_system_text = SYSTEM_TEXT.replace("{BOT_USER_ID}", context.bot_user_id)
+        new_system_text = SYSTEM_TEXT.format(bot_user_id=context.bot_user_id)
         messages = [
             {"role": "system", "content": new_system_text},
             {"role": "user", "content": format_openai_message_content(payload["text"])},
@@ -80,7 +80,7 @@ def start_convo(
             client=client,
             wip_reply=wip_reply,
             context=context,
-            user_id=context.user_id,
+            user_id=context.actor_user_id or context.user_id,
             messages=messages,
             steam=steam,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
@@ -150,7 +150,7 @@ def reply_if_necessary(
             limit=1000,
         )
         messages = []
-        user_id = context.user_id
+        user_id = context.actor_user_id or context.user_id
         last_assistant_idx = -1
         reply_messages = replies.get("messages", [])
         indices_to_remove = []
