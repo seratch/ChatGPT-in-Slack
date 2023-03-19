@@ -271,7 +271,7 @@ def reply_if_necessary(
                 else ""
             )
             + "\n\n"
-            + f":warning: Failed to start a conversation with ChatGPT: {e}"
+            + f":warning: Failed to reply: {e}"
         )
         logger.exception(text, e)
         if wip_reply is not None:
