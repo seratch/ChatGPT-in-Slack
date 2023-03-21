@@ -23,6 +23,8 @@ def test_format_assistant_reply():
         ("\n\n```csharp\nusing System;\n```", "```\nusing System;\n```"),
         ("\n\n```Matlab\ndisp('foo');\n```", "```\ndisp('foo');\n```"),
         ("\n\n```matlab\ndisp('foo');\n```", "```\ndisp('foo');\n```"),
+        ("\n\n```JSON\n{\n```", "```\n{\n```"),
+        ("\n\n```json\n{\n```", "```\n{\n```"),
         (
             "\n\n```LaTeX\n\\documentclass{article}\n```",
             "```\n\\documentclass{article}\n```",
