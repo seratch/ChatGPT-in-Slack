@@ -37,6 +37,7 @@ def start_receiving_openai_response(
     # Remove old user messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
+    # TODO: currently we don't pass gpt-4 to this calculation method
     while calculate_num_tokens(messages) >= 4096 - MAX_TOKENS - 10:
         removed = False
         for i, message in enumerate(messages):
@@ -175,6 +176,7 @@ def update_wip_message(
 
 def calculate_num_tokens(
     messages: List[Dict[str, str]],
+    # TODO: adjustment for gpt-4
     model: str = GPT_3_5_TURBO_0301_MODEL,
 ) -> int:
     """Returns the number of tokens used by a list of messages."""
@@ -182,7 +184,8 @@ def calculate_num_tokens(
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
         encoding = tiktoken.get_encoding("cl100k_base")
-    if model == GPT_3_5_TURBO_0301_MODEL:  # note: future models may deviate from this
+    if model == GPT_3_5_TURBO_0301_MODEL:
+        # note: future models may deviate from this
         num_tokens = 0
         for message in messages:
             # every message follows <im_start>{role/name}\n{content}<im_end>\n
