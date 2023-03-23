@@ -40,10 +40,12 @@ export SLACK_BOT_TOKEN=xoxb-...
 # Visit https://platform.openai.com/account/api-keys for this token
 export OPENAI_API_KEY=sk-...
 
+# Optional: gpt-3.5-turbo and gpt-4 are currently supported (default: gpt-3.5-turbo)
+export OPENAI_MODEL=gpt-4
 # Optional: You can adjust the timeout seconds for OpenAI calls (default: 30)
 export OPENAI_TIMEOUT_SECONDS=60
 # Optional: You can include priming instructions for ChatGPT to fine tune the bot purpose
-export SYSTEM_TEXT="You proofread text. When you receive a message, you will check
+export OPENAI_SYSTEM_TEXT="You proofread text. When you receive a message, you will check
 for mistakes and make suggestion to improve the language of the given text"
 
 python -m venv .venv

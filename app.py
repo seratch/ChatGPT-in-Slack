@@ -26,12 +26,15 @@ You are a bot in a slack chat room. You might receive messages from multiple peo
 Slack user IDs match the regex `<@U.*?>`.
 Your Slack user ID is <@{bot_user_id}>.
 """
-SYSTEM_TEXT = os.environ.get("SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
+SYSTEM_TEXT = os.environ.get("OPENAI_SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
 
 DEFAULT_OPENAI_TIMEOUT_SECONDS = 30
 OPENAI_TIMEOUT_SECONDS = int(
     os.environ.get("OPENAI_TIMEOUT_SECONDS", DEFAULT_OPENAI_TIMEOUT_SECONDS)
 )
+
+DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo"
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
 
 TIMEOUT_ERROR_MESSAGE = (
     f":warning: Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
@@ -73,6 +76,7 @@ def start_convo(
         )
         steam = start_receiving_openai_response(
             api_key=openai_api_key,
+            model=OPENAI_MODEL,
             messages=messages,
             user=context.user_id,
         )
@@ -204,6 +208,7 @@ def reply_if_necessary(
         )
         steam = start_receiving_openai_response(
             api_key=openai_api_key,
+            model=OPENAI_MODEL,
             messages=messages,
             user=user_id,
         )

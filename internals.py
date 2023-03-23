@@ -30,6 +30,7 @@ def format_openai_message_content(content: str) -> str:
 def start_receiving_openai_response(
     *,
     api_key: str,
+    model: str,
     messages: List[Dict[str, str]],
     user: str,
 ) -> Generator[OpenAIObject, Any, None]:
@@ -49,7 +50,7 @@ def start_receiving_openai_response(
 
     return openai.ChatCompletion.create(
         api_key=api_key,
-        model="gpt-3.5-turbo",
+        model=model,
         messages=messages,
         top_p=1,
         n=1,
@@ -74,11 +75,12 @@ def consume_openai_stream_to_write_reply(
     timeout_seconds: int,
 ):
     start_time = time.time()
-    assistant_reply: Dict[str, str] = {"content": ""}
+    assistant_reply: Dict[str, str] = {"role": "assistant", "content": ""}
     messages.append(assistant_reply)
     word_count = 0
     threads = []
     try:
+        loading_character = " ... :writing_hand:"
         for chunk in steam:
             spent_seconds = time.time() - start_time
             if timeout_seconds < spent_seconds:
@@ -87,9 +89,7 @@ def consume_openai_stream_to_write_reply(
             if item.get("finish_reason") is not None:
                 break
             delta = item.get("delta")
-            if delta.get("role") is not None:
-                assistant_reply["role"] = delta.get("role")
-            elif delta.get("content") is not None:
+            if delta.get("content") is not None:
                 word_count += 1
                 assistant_reply["content"] += delta.get("content")
                 if word_count >= 20:
@@ -103,7 +103,7 @@ def consume_openai_stream_to_write_reply(
                             client=client,
                             channel=context.channel_id,
                             ts=wip_reply["message"]["ts"],
-                            text=assistant_reply_text,
+                            text=assistant_reply_text + loading_character,
                             messages=messages,
                             user=user_id,
                         )
