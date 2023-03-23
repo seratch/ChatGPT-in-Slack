@@ -114,6 +114,14 @@ def consume_openai_stream_to_write_reply(
                     thread.start()
                     threads.append(thread)
                     word_count = 0
+
+        for t in threads:
+            try:
+                if t.is_alive():
+                    t.join()
+            except Exception:
+                pass
+
         assistant_reply_text = format_assistant_reply(assistant_reply["content"])
         wip_reply["message"]["text"] = assistant_reply_text
         update_wip_message(

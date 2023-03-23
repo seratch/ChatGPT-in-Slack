@@ -2,7 +2,8 @@ import logging
 import os
 
 from openai.error import Timeout
-from slack_bolt import App, Ack, BoltContext
+from slack_bolt import App, Ack, BoltContext, BoltResponse
+from slack_bolt.request.payload_utils import is_event
 from slack_sdk.web import WebClient
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 from internals import (
@@ -288,7 +289,35 @@ if __name__ == "__main__":
 
     client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
     client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
-    app = App(client=client, process_before_response=True)
+
+    MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
+
+    # To reduce unnecessary workload in this app,
+    # this before_authorize function skips message changed/deleted events.
+    # Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
+    def skip_message_subtype_events(
+        body: dict,
+        payload: dict,
+        logger: logging.Logger,
+        next_,
+    ):
+        if (
+            is_event(body)
+            and payload.get("type") == "message"
+            and payload.get("subtype") in MESSAGE_SUBTYPES_TO_SKIP
+        ):
+            logger.debug(
+                "Skipped the following middleware and listeners "
+                f"for this message event (subtype: {payload.get('subtype')})"
+            )
+            return BoltResponse(status=200, body="")
+        next_()
+
+    app = App(
+        client=client,
+        before_authorize=skip_message_subtype_events,
+        process_before_response=True,
+    )
     register_listeners(app)
 
     @app.middleware
