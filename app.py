@@ -278,6 +278,31 @@ def register_listeners(app: App):
     app.event("message")(ack=just_ack, lazy=[reply_if_necessary])
 
 
+MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
+
+
+# To reduce unnecessary workload in this app,
+# this before_authorize function skips message changed/deleted events.
+# Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
+def before_authorize(
+    body: dict,
+    payload: dict,
+    logger: logging.Logger,
+    next_,
+):
+    if (
+        is_event(body)
+        and payload.get("type") == "message"
+        and payload.get("subtype") in MESSAGE_SUBTYPES_TO_SKIP
+    ):
+        logger.debug(
+            "Skipped the following middleware and listeners "
+            f"for this message event (subtype: {payload.get('subtype')})"
+        )
+        return BoltResponse(status=200, body="")
+    next_()
+
+
 if __name__ == "__main__":
     #
     # Local development
@@ -290,32 +315,9 @@ if __name__ == "__main__":
     client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
     client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
 
-    MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
-
-    # To reduce unnecessary workload in this app,
-    # this before_authorize function skips message changed/deleted events.
-    # Especially, "message_changed" events can be triggered many times when the app rapidly updates its reply.
-    def skip_message_subtype_events(
-        body: dict,
-        payload: dict,
-        logger: logging.Logger,
-        next_,
-    ):
-        if (
-            is_event(body)
-            and payload.get("type") == "message"
-            and payload.get("subtype") in MESSAGE_SUBTYPES_TO_SKIP
-        ):
-            logger.debug(
-                "Skipped the following middleware and listeners "
-                f"for this message event (subtype: {payload.get('subtype')})"
-            )
-            return BoltResponse(status=200, body="")
-        next_()
-
     app = App(
         client=client,
-        before_authorize=skip_message_subtype_events,
+        before_authorize=before_authorize,
         process_before_response=True,
     )
     register_listeners(app)

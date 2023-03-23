@@ -15,7 +15,7 @@ import openai
 from slack_sdk.web import WebClient
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 
-from app import register_listeners
+from app import register_listeners, before_authorize
 
 #
 # Product deployment (AWS Lambda)
@@ -95,6 +95,7 @@ def register_revocation_handlers(app: App):
 def handler(event, context_):
     app = App(
         process_before_response=True,
+        before_authorize=before_authorize,
         oauth_flow=LambdaS3OAuthFlow(),
         client=client,
     )
