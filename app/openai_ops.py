@@ -21,12 +21,20 @@ MAX_TOKENS = 1024
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
 
 
-def format_openai_message_content(content: str) -> str:
+# Format message from Slack to send to OpenAI
+def format_openai_message_content(content: str, translate_markdown: bool) -> str:
     if content is None:
         return None
+
     # Unescape &, < and >, since Slack replaces these with their HTML equivalents
     # See also: https://api.slack.com/reference/surfaces/formatting#escaping
-    return content.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+    content = content.replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+
+    # Convert from Slack mrkdwn to markdown format
+    if translate_markdown:
+        content = slack_to_markdown(content)
+
+    return content
 
 
 def start_receiving_openai_response(
@@ -76,6 +84,7 @@ def consume_openai_stream_to_write_reply(
     messages: List[Dict[str, str]],
     steam: Generator[OpenAIObject, Any, None],
     timeout_seconds: int,
+    translate_markdown: bool,
 ):
     start_time = time.time()
     assistant_reply: Dict[str, str] = {"role": "assistant", "content": ""}
@@ -99,7 +108,7 @@ def consume_openai_stream_to_write_reply(
 
                     def update_message():
                         assistant_reply_text = format_assistant_reply(
-                            assistant_reply["content"]
+                            assistant_reply["content"], translate_markdown
                         )
                         wip_reply["message"]["text"] = assistant_reply_text
                         update_wip_message(
@@ -124,7 +133,9 @@ def consume_openai_stream_to_write_reply(
             except Exception:
                 pass
 
-        assistant_reply_text = format_assistant_reply(assistant_reply["content"])
+        assistant_reply_text = format_assistant_reply(
+            assistant_reply["content"], translate_markdown
+        )
         wip_reply["message"]["text"] = assistant_reply_text
         update_wip_message(
             client=client,
@@ -178,8 +189,9 @@ def calculate_num_tokens(
         raise NotImplementedError(error)
 
 
-def format_assistant_reply(content: str) -> str:
-    result = format_openai_message_content(content)
+# Format message from OpenAI to display in Slack
+def format_assistant_reply(content: str, translate_markdown: bool) -> str:
+    # Remove OpenAI syntax tags since Slack doesn't render them in a message
     for o, n in [
         ("^\n+", ""),
         ("```\\s*[Rr]ust\n", "```\n"),
@@ -204,5 +216,62 @@ def format_assistant_reply(content: str) -> str:
         ("```\\s*[Ty]ype[Ss]cript", "```\n"),
         ("```\\s*[Pp]ython\n", "```\n"),
     ]:
-        result = re.sub(o, n, result)
+        content = re.sub(o, n, content)
+
+    # Convert from OpenAI markdown to Slack mrkdwn format
+    if translate_markdown:
+        content = markdown_to_slack(content)
+
+    return content
+
+
+# Conversion from Slack mrkdwn to OpenAI markdown
+# See also: https://api.slack.com/reference/surfaces/formatting#basics
+def slack_to_markdown(content: str) -> str:
+    # Split the input string into parts based on code blocks and inline code
+    parts = re.split(r"(```.+?```|`[^`\n]+?`)", content)
+
+    # Apply the bold, italic, and strikethrough formatting to text not within code
+    result = ""
+    for part in parts:
+        if part.startswith("```") or part.startswith("`"):
+            result += part
+        else:
+            for o, n in [
+                (r"\*(?!\s)([^\*\n]+?)(?<!\s)\*", r"**\1**"),  # *bold* to **bold**
+                (r"_(?!\s)([^_\n]+?)(?<!\s)_", r"*\1*"),  # _italic_ to *italic*
+                (r"~(?!\s)([^~\n]+?)(?<!\s)~", r"~~\1~~"),  # ~strike~ to ~~strike~~
+            ]:
+                part = re.sub(o, n, part)
+            result += part
+    return result
+
+
+# Conversion from OpenAI markdown to Slack mrkdwn
+# See also: https://api.slack.com/reference/surfaces/formatting#basics
+def markdown_to_slack(content: str) -> str:
+    # Split the input string into parts based on code blocks and inline code
+    parts = re.split(r"(```.+?```|`[^`\n]+?`)", content)
+
+    # Apply the bold, italic, and strikethrough formatting to text not within code
+    result = ""
+    for part in parts:
+        if part.startswith("```") or part.startswith("`"):
+            result += part
+        else:
+            for o, n in [
+                (
+                    r"\*\*\*(?!\s)([^\*\n]+?)(?<!\s)\*\*\*",
+                    r"_*\1*_",
+                ),  # ***bold italic*** to *_bold italic_*
+                (
+                    r"(?<![\*_])\*(?!\s)([^\*\n]+?)(?<!\s)\*(?![\*_])",
+                    r"_\1_",
+                ),  # *italic* to _italic_
+                (r"\*\*(?!\s)([^\*\n]+?)(?<!\s)\*\*", r"*\1*"),  # **bold** to *bold*
+                (r"__(?!\s)([^_\n]+?)(?<!\s)__", r"*\1*"),  # __bold__ to *bold*
+                (r"~~(?!\s)([^~\n]+?)(?<!\s)~~", r"~\1~"),  # ~~strike~~ to ~strike~
+            ]:
+                part = re.sub(o, n, part)
+            result += part
     return result

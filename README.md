@@ -53,6 +53,8 @@ for mistakes and make suggestion to improve the language of the given text"
 export USE_SLACK_LANGUAGE=true
 # Optional: Adjust the app's logging level (default: DEBUG)
 export SLACK_APP_LOG_LEVEL=INFO
+# Optional: When the string is "true", translate between OpenAI markdown and Slack mrkdwn format (default: false)
+export TRANSLATE_MARKDOWN=true
 
 python -m venv .venv
 source .venv/bin/activate
