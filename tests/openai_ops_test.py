@@ -1,4 +1,4 @@
-from internals import format_assistant_reply, format_openai_message_content
+from app.openai_ops import format_assistant_reply, format_openai_message_content
 
 
 def test_format_assistant_reply():

@@ -9,7 +9,9 @@ from typing import List, Dict, Any, Generator
 from openai.error import Timeout
 from openai.openai_object import OpenAIObject
 from slack_bolt import BoltContext
-from slack_sdk.web import WebClient, SlackResponse
+from slack_sdk.web import WebClient
+
+from app.wip_message import update_wip_message
 
 #
 # Internal functions
@@ -29,7 +31,7 @@ def format_openai_message_content(content: str) -> str:
 
 def start_receiving_openai_response(
     *,
-    api_key: str,
+    openai_api_key: str,
     model: str,
     messages: List[Dict[str, str]],
     user: str,
@@ -50,7 +52,7 @@ def start_receiving_openai_response(
             break
 
     return openai.ChatCompletion.create(
-        api_key=api_key,
+        api_key=openai_api_key,
         model=model,
         messages=messages,
         top_p=1,
@@ -143,43 +145,6 @@ def consume_openai_stream_to_write_reply(
             steam.close()
         except Exception:
             pass
-
-
-def post_wip_message(
-    client: WebClient,
-    channel: str,
-    thread_ts: str,
-    messages: List[Dict[str, str]],
-    user: str,
-) -> SlackResponse:
-    return client.chat_postMessage(
-        channel=channel,
-        thread_ts=thread_ts,
-        text=":hourglass_flowing_sand: Wait a second, please ...",
-        metadata={
-            "event_type": "chat-gpt-convo",
-            "event_payload": {"messages": messages, "user": user},
-        },
-    )
-
-
-def update_wip_message(
-    client: WebClient,
-    channel: str,
-    ts: str,
-    text: str,
-    messages: List[Dict[str, str]],
-    user: str,
-) -> SlackResponse:
-    return client.chat_update(
-        channel=channel,
-        ts=ts,
-        text=text,
-        metadata={
-            "event_type": "chat-gpt-convo",
-            "event_payload": {"messages": messages, "user": user},
-        },
-    )
 
 
 def calculate_num_tokens(
