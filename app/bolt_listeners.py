@@ -189,11 +189,10 @@ def reply_if_necessary(
         for idx, reply in enumerate(reply_messages):
             if idx not in indices_to_remove:
                 filtered_reply_messages.append(reply)
-        if len(filtered_reply_messages) == last_assistant_idx + 1:
+        if len(filtered_reply_messages) == 0:
             return
 
-        start_idx = last_assistant_idx + 1
-        for reply in filtered_reply_messages[start_idx:]:
+        for reply in filtered_reply_messages:
             messages.append(
                 {
                     "content": format_openai_message_content(reply.get("text")),
@@ -271,7 +270,7 @@ def reply_if_necessary(
                 else ""
             )
             + "\n\n"
-            + f":warning: Failed to start a conversation with ChatGPT: {e}"
+            + f":warning: Failed to reply: {e}"
         )
         logger.exception(text, e)
         if wip_reply is not None:
