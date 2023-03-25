@@ -1,11 +1,13 @@
 # ChatGPT in Slack
 
 Introducing a transformative app for Slack users, specifically designed to enhance your communication with [ChatGPT](https://openai.com/blog/chatgpt)!
-With this app, you can seamlessly interact with ChatGPT through Slack channels, streamlining your planning and writing processes with the power of AI.
+This app enables seamless interaction with ChatGPT via Slack channels, optimizing your planning and writing processes by leveraging AI technology.
 
-If you want to see how this app works, you can install the live demo app from https://bit.ly/chat-gpt-in-slack.
-Please note that this live demo app is being hosted personally by @seratch.
-If you plan to use this app in your corporate Slack workspace, we highly recommend that you run it on your own infrastructure using the instructions provided below.
+Discover the app's functionality by installing the live demo from https://bit.ly/chat-gpt-in-slack. 
+Keep in mind that the live demo is personally hosted by [@seratch](https://github.com/seratch).
+For corporate Slack workspaces, we strongly advise deploying the app on your own infrastructure using the guidelines provided below.
+
+If you're looking for a sample app operating on [Slack's next-generation hosted platform](https://api.slack.com/future), check out https://github.com/seratch/chatgpt-on-deno 🙌
 
 ## How It Works
 
