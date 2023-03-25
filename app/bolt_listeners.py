@@ -1,16 +1,19 @@
 import logging
-import os
 
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
 from slack_sdk.web import WebClient
-from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
-from internals import (
-    post_wip_message,
+
+from app.env import OPENAI_TIMEOUT_SECONDS, SYSTEM_TEXT, OPENAI_MODEL
+from app.i18n import translate
+from app.openai_ops import (
     start_receiving_openai_response,
     format_openai_message_content,
     consume_openai_stream_to_write_reply,
+)
+from app.wip_message import (
+    post_wip_message,
 )
 
 #
@@ -22,25 +25,11 @@ def just_ack(ack: Ack):
     ack()
 
 
-DEFAULT_SYSTEM_TEXT = """
-You are a bot in a slack chat room. You might receive messages from multiple people.
-Slack user IDs match the regex `<@U.*?>`.
-Your Slack user ID is <@{bot_user_id}>.
-"""
-SYSTEM_TEXT = os.environ.get("OPENAI_SYSTEM_TEXT", DEFAULT_SYSTEM_TEXT)
-
-DEFAULT_OPENAI_TIMEOUT_SECONDS = 30
-OPENAI_TIMEOUT_SECONDS = int(
-    os.environ.get("OPENAI_TIMEOUT_SECONDS", DEFAULT_OPENAI_TIMEOUT_SECONDS)
-)
-
-DEFAULT_OPENAI_MODEL = "gpt-3.5-turbo"
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", DEFAULT_OPENAI_MODEL)
-
 TIMEOUT_ERROR_MESSAGE = (
     f":warning: Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
     "Please try again later. :bow:"
 )
+DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
 
 
 def start_convo(
@@ -68,15 +57,19 @@ def start_convo(
             {"role": "system", "content": new_system_text},
             {"role": "user", "content": format_openai_message_content(payload["text"])},
         ]
+        loading_text = translate(
+            openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
+        )
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
             thread_ts=payload["ts"],
+            loading_text=loading_text,
             messages=messages,
             user=context.user_id,
         )
         steam = start_receiving_openai_response(
-            api_key=openai_api_key,
+            openai_api_key=openai_api_key,
             model=OPENAI_MODEL,
             messages=messages,
             user=context.user_id,
@@ -100,7 +93,11 @@ def start_convo(
                     else ""
                 )
                 + "\n\n"
-                + TIMEOUT_ERROR_MESSAGE
+                + translate(
+                    openai_api_key=openai_api_key,
+                    context=context,
+                    text=TIMEOUT_ERROR_MESSAGE,
+                )
             )
             client.chat_update(
                 channel=context.channel_id,
@@ -115,7 +112,11 @@ def start_convo(
                 else ""
             )
             + "\n\n"
-            + f":warning: Failed to start a conversation with ChatGPT: {e}"
+            + translate(
+                openai_api_key=openai_api_key,
+                context=context,
+                text=f":warning: Failed to start a conversation with ChatGPT: {e}",
+            )
         )
         logger.exception(text, e)
         if wip_reply is not None:
@@ -200,15 +201,19 @@ def reply_if_necessary(
                 }
             )
 
+        loading_text = translate(
+            openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
+        )
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
             thread_ts=payload["ts"],
+            loading_text=loading_text,
             messages=messages,
             user=user_id,
         )
         steam = start_receiving_openai_response(
-            api_key=openai_api_key,
+            openai_api_key=openai_api_key,
             model=OPENAI_MODEL,
             messages=messages,
             user=user_id,
@@ -247,7 +252,11 @@ def reply_if_necessary(
                     else ""
                 )
                 + "\n\n"
-                + TIMEOUT_ERROR_MESSAGE
+                + translate(
+                    openai_api_key=openai_api_key,
+                    context=context,
+                    text=TIMEOUT_ERROR_MESSAGE,
+                )
             )
             client.chat_update(
                 channel=context.channel_id,
@@ -301,31 +310,3 @@ def before_authorize(
         )
         return BoltResponse(status=200, body="")
     next_()
-
-
-if __name__ == "__main__":
-    #
-    # Local development
-    #
-
-    from slack_bolt.adapter.socket_mode import SocketModeHandler
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    client = WebClient(token=os.environ["SLACK_BOT_TOKEN"])
-    client.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
-
-    app = App(
-        client=client,
-        before_authorize=before_authorize,
-        process_before_response=True,
-    )
-    register_listeners(app)
-
-    @app.middleware
-    def set_openai_api_key(context: BoltContext, next_):
-        context["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
-        next_()
-
-    handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
-    handler.start()

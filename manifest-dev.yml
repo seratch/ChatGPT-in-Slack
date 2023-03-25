@@ -18,6 +18,7 @@ oauth_config:
       - mpim:history
       - chat:write.public
       - chat:write
+      - users:read
 settings:
   event_subscriptions:
     bot_events:

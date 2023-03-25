@@ -47,11 +47,15 @@ export OPENAI_TIMEOUT_SECONDS=60
 # Optional: You can include priming instructions for ChatGPT to fine tune the bot purpose
 export OPENAI_SYSTEM_TEXT="You proofread text. When you receive a message, you will check
 for mistakes and make suggestion to improve the language of the given text"
+# Optional: When the string is "true", this app translates ChatGPT prompts into a user's preferred language (default: true)
+export USE_SLACK_LANGUAGE=true
+# Optional: Adjust the app's logging level (default: DEBUG)
+export SLACK_APP_LOG_LEVEL=INFO
 
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python app.py
+python main.py
 ```
 
 ## Running the App for Company Workspaces
