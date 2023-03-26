@@ -5,17 +5,20 @@ from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
 from slack_sdk.web import WebClient
 
-from app.env import OPENAI_TIMEOUT_SECONDS, SYSTEM_TEXT, OPENAI_MODEL, TRANSLATE_MARKDOWN
+from app.env import (
+    OPENAI_TIMEOUT_SECONDS,
+    SYSTEM_TEXT,
+    OPENAI_MODEL,
+    TRANSLATE_MARKDOWN,
+)
 from app.i18n import translate
 from app.openai_ops import (
     start_receiving_openai_response,
     format_openai_message_content,
     consume_openai_stream_to_write_reply,
-    slack_to_markdown,
 )
-from app.wip_message import (
-    post_wip_message,
-)
+from app.markdown import slack_to_markdown
+from app.reply import post_wip_message
 
 #
 # Listener functions
