@@ -8,7 +8,6 @@ from slack_sdk.web import WebClient
 from app.env import (
     OPENAI_TIMEOUT_SECONDS,
     SYSTEM_TEXT,
-    OPENAI_MODEL,
     TRANSLATE_MARKDOWN,
 )
 from app.i18n import translate
@@ -84,7 +83,7 @@ def start_convo(
         )
         steam = start_receiving_openai_response(
             openai_api_key=openai_api_key,
-            model=OPENAI_MODEL,
+            model=context["OPENAI_MODEL"],
             messages=messages,
             user=context.user_id,
         )
@@ -230,7 +229,7 @@ def reply_if_necessary(
         )
         steam = start_receiving_openai_response(
             openai_api_key=openai_api_key,
-            model=OPENAI_MODEL,
+            model=context["OPENAI_MODEL"],
             messages=messages,
             user=user_id,
         )

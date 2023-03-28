@@ -1,4 +1,6 @@
 # Unzip the dependencies managed by serverless-python-requirements
+import json
+
 try:
     import unzip_requirements  # type:ignore
 except ImportError:
@@ -135,8 +137,16 @@ def handler(event, context_):
             s3_response = s3_client.get_object(
                 Bucket=openai_bucket_name, Key=context.team_id
             )
-            api_key = s3_response["Body"].read().decode("utf-8")
-            context["OPENAI_API_KEY"] = api_key
+            stored_data: str = s3_response["Body"].read().decode("utf-8")
+            if stored_data.startswith("{"):
+                # The legacy data format
+                config = json.loads(stored_data)
+                context["OPENAI_API_KEY"] = config.get("api_key")
+                context["OPENAI_MODEL"] = config.get("model")
+            else:
+                # The legacy data format
+                context["OPENAI_API_KEY"] = stored_data
+                context["OPENAI_MODEL"] = "gpt-3.5-turbo"
         except:  # noqa: E722
             context["OPENAI_API_KEY"] = None
         next_()
@@ -171,11 +181,13 @@ def handler(event, context_):
     def handle_some_action(ack, body: dict, client: WebClient, context: BoltContext):
         ack()
         openai_api_key = context.get("OPENAI_API_KEY")
-        text = "Save your OpenAI API key:"
+        api_key_text = "Save your OpenAI API key:"
         submit = "Submit"
         cancel = "Cancel"
         if openai_api_key is not None:
-            text = translate(openai_api_key=openai_api_key, context=context, text=text)
+            api_key_text = translate(
+                openai_api_key=openai_api_key, context=context, text=api_key_text
+            )
             submit = translate(
                 openai_api_key=openai_api_key, context=context, text=submit
             )
@@ -195,27 +207,64 @@ def handler(event, context_):
                     {
                         "type": "input",
                         "block_id": "api_key",
-                        "label": {"type": "plain_text", "text": text},
+                        "label": {"type": "plain_text", "text": api_key_text},
                         "element": {"type": "plain_text_input", "action_id": "input"},
-                    }
+                    },
+                    {
+                        "type": "input",
+                        "block_id": "model",
+                        "label": {"type": "plain_text", "text": "OpenAI Model"},
+                        "element": {
+                            "type": "static_select",
+                            "action_id": "input",
+                            "options": [
+                                {
+                                    "text": {
+                                        "type": "plain_text",
+                                        "text": "GPT-3.5 Turbo",
+                                    },
+                                    "value": "gpt-3.5-turbo",
+                                },
+                                {
+                                    "text": {"type": "plain_text", "text": "GPT-4"},
+                                    "value": "gpt-4",
+                                },
+                            ],
+                        },
+                    },
                 ],
             },
         )
 
-    def validate_api_key_registration(
-        ack: Ack, view: dict, logger: logging.Logger, context: BoltContext
-    ):
-        api_key = view["state"]["values"]["api_key"]["input"]["value"]
+    def validate_api_key_registration(ack: Ack, view: dict, context: BoltContext):
+        already_set_api_key = context.get("OPENAI_API_KEY")
+
+        inputs = view["state"]["values"]
+        api_key = inputs["api_key"]["input"]["value"]
+        model = inputs["model"]["input"]["selected_option"]["value"]
         try:
+            # Verify if the API key is valid
             openai.Model.retrieve(api_key=api_key, id="gpt-3.5-turbo")
+            try:
+                # Verify if the given model works with the API key
+                openai.Model.retrieve(api_key=api_key, id=model)
+            except Exception:
+                text = "This model is not yet available for this API key"
+                if already_set_api_key is not None:
+                    text = translate(
+                        openai_api_key=already_set_api_key, context=context, text=text
+                    )
+                ack(
+                    response_action="errors",
+                    errors={"model": text},
+                )
+                return
             ack()
-        except Exception as e:
-            logger.exception(e)
+        except Exception:
             text = "This API key seems to be invalid"
-            openai_api_key = context.get("OPENAI_API_KEY")
-            if openai_api_key is not None:
+            if already_set_api_key is not None:
                 text = translate(
-                    openai_api_key=openai_api_key, context=context, text=text
+                    openai_api_key=already_set_api_key, context=context, text=text
                 )
             ack(
                 response_action="errors",
@@ -227,11 +276,15 @@ def handler(event, context_):
         logger: logging.Logger,
         context: BoltContext,
     ):
-        api_key = view["state"]["values"]["api_key"]["input"]["value"]
+        inputs = view["state"]["values"]
+        api_key = inputs["api_key"]["input"]["value"]
+        model = inputs["model"]["input"]["selected_option"]["value"]
         try:
-            openai.Model.retrieve(api_key=api_key, id="gpt-3.5-turbo")
+            openai.Model.retrieve(api_key=api_key, id=model)
             s3_client.put_object(
-                Bucket=openai_bucket_name, Key=context.team_id, Body=api_key
+                Bucket=openai_bucket_name,
+                Key=context.team_id,
+                Body=json.dumps({"api_key": api_key, "model": model}),
             )
         except Exception as e:
             logger.exception(e)
