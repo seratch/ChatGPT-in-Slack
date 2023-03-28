@@ -1,4 +1,5 @@
 import logging
+import re
 
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext, BoltResponse
@@ -63,7 +64,7 @@ def start_convo(
 
         user_id = context.actor_user_id or context.user_id
         # Strip bot Slack user ID from initial message
-        msg_text = payload["text"].replace(f"<@{context.bot_user_id}>", "")
+        msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
         messages = [
             {"role": "system", "content": new_system_text},
             {
