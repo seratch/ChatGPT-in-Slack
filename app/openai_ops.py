@@ -1,13 +1,13 @@
 import threading
 import time
-
-import openai
-import tiktoken
 import re
 from typing import List, Dict, Any, Generator
 
+import openai
 from openai.error import Timeout
 from openai.openai_object import OpenAIObject
+import tiktoken
+
 from slack_bolt import BoltContext
 from slack_sdk.web import WebClient
 

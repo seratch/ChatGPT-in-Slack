@@ -10,7 +10,6 @@ from app.env import (
     USE_SLACK_LANGUAGE,
     SLACK_APP_LOG_LEVEL,
     OPENAI_MODEL,
-    OPENAI_API_KEY,
 )
 from app.home_tab import build_home_tab, DEFAULT_MESSAGE, DEFAULT_CONFIGURE_LABEL
 from app.i18n import translate
@@ -32,12 +31,14 @@ if __name__ == "__main__":
 
     @app.event("app_home_opened")
     def render_home_tab(client: WebClient, context: BoltContext):
-        openai_api_key = os.environ["OPENAI_API_KEY"]
+        already_set_api_key = os.environ["OPENAI_API_KEY"]
         text = translate(
-            openai_api_key=openai_api_key, context=context, text=DEFAULT_MESSAGE
+            openai_api_key=already_set_api_key, context=context, text=DEFAULT_MESSAGE
         )
         configure_label = translate(
-            openai_api_key=openai_api_key, context=context, text=DEFAULT_CONFIGURE_LABEL
+            openai_api_key=already_set_api_key,
+            context=context,
+            text=DEFAULT_CONFIGURE_LABEL,
         )
         client.views_publish(
             user_id=context.user_id,
@@ -59,7 +60,7 @@ if __name__ == "__main__":
 
     @app.middleware
     def set_openai_api_key(context: BoltContext, next_):
-        context["OPENAI_API_KEY"] = OPENAI_API_KEY
+        context["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
         context["OPENAI_MODEL"] = OPENAI_MODEL
         next_()
 

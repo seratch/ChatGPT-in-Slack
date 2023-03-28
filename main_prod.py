@@ -1,6 +1,4 @@
 # Unzip the dependencies managed by serverless-python-requirements
-import json
-
 try:
     import unzip_requirements  # type:ignore
 except ImportError:
@@ -10,20 +8,20 @@ except ImportError:
 # Imports
 #
 
-from slack_sdk.errors import SlackApiError
-
-from app.env import USE_SLACK_LANGUAGE, SLACK_APP_LOG_LEVEL
-from app.home_tab import build_home_tab, DEFAULT_MESSAGE, DEFAULT_CONFIGURE_LABEL
-from app.i18n import translate
-
+import json
 import logging
 import os
-from slack_bolt import App, Ack, BoltContext
 import openai
+
 from slack_sdk.web import WebClient
+from slack_sdk.errors import SlackApiError
 from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+from slack_bolt import App, Ack, BoltContext
 
 from app.bolt_listeners import register_listeners, before_authorize
+from app.env import USE_SLACK_LANGUAGE, SLACK_APP_LOG_LEVEL, DEFAULT_OPENAI_MODEL
+from app.home_tab import build_home_tab, DEFAULT_MESSAGE, DEFAULT_CONFIGURE_LABEL
+from app.i18n import translate
 
 #
 # Product deployment (AWS Lambda)
@@ -137,16 +135,15 @@ def handler(event, context_):
             s3_response = s3_client.get_object(
                 Bucket=openai_bucket_name, Key=context.team_id
             )
-            stored_data: str = s3_response["Body"].read().decode("utf-8")
-            if stored_data.startswith("{"):
-                # The legacy data format
-                config = json.loads(stored_data)
+            config_str: str = s3_response["Body"].read().decode("utf-8")
+            if config_str.startswith("{"):
+                config = json.loads(config_str)
                 context["OPENAI_API_KEY"] = config.get("api_key")
                 context["OPENAI_MODEL"] = config.get("model")
             else:
                 # The legacy data format
-                context["OPENAI_API_KEY"] = stored_data
-                context["OPENAI_MODEL"] = "gpt-3.5-turbo"
+                context["OPENAI_API_KEY"] = config_str
+                context["OPENAI_MODEL"] = DEFAULT_OPENAI_MODEL
         except:  # noqa: E722
             context["OPENAI_API_KEY"] = None
         next_()
@@ -180,19 +177,19 @@ def handler(event, context_):
     @app.action("configure")
     def handle_some_action(ack, body: dict, client: WebClient, context: BoltContext):
         ack()
-        openai_api_key = context.get("OPENAI_API_KEY")
+        already_set_api_key = context.get("OPENAI_API_KEY")
         api_key_text = "Save your OpenAI API key:"
         submit = "Submit"
         cancel = "Cancel"
-        if openai_api_key is not None:
+        if already_set_api_key is not None:
             api_key_text = translate(
-                openai_api_key=openai_api_key, context=context, text=api_key_text
+                openai_api_key=already_set_api_key, context=context, text=api_key_text
             )
             submit = translate(
-                openai_api_key=openai_api_key, context=context, text=submit
+                openai_api_key=already_set_api_key, context=context, text=submit
             )
             cancel = translate(
-                openai_api_key=openai_api_key, context=context, text=cancel
+                openai_api_key=already_set_api_key, context=context, text=cancel
             )
 
         client.views_open(
@@ -230,6 +227,13 @@ def handler(event, context_):
                                     "value": "gpt-4",
                                 },
                             ],
+                            "initial_option": {
+                                "text": {
+                                    "type": "plain_text",
+                                    "text": "GPT-3.5 Turbo",
+                                },
+                                "value": "gpt-3.5-turbo",
+                            },
                         },
                     },
                 ],
