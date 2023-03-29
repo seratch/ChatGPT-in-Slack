@@ -206,7 +206,7 @@ def reply_if_necessary(
         for idx, reply in enumerate(reply_messages):
             # Strip bot Slack user ID from initial message
             if idx == 0:
-                reply["text"] = reply["text"].replace(f"<@{context.bot_user_id}>", "")
+                reply["text"] = re.sub(f"<@{context.bot_user_id}>\\s*", "", reply["text"])
             if idx not in indices_to_remove:
                 filtered_reply_messages.append(reply)
         if len(filtered_reply_messages) == 0:
