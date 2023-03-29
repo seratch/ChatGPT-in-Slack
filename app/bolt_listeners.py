@@ -1,4 +1,5 @@
 import logging
+import re
 
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext, BoltResponse
@@ -61,13 +62,15 @@ def start_convo(
         if TRANSLATE_MARKDOWN:
             new_system_text = slack_to_markdown(new_system_text)
 
+        user_id = context.actor_user_id or context.user_id
+        # Strip bot Slack user ID from initial message
+        msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
         messages = [
             {"role": "system", "content": new_system_text},
             {
                 "role": "user",
-                "content": format_openai_message_content(
-                    payload["text"], TRANSLATE_MARKDOWN
-                ),
+                "content": f"<@{user_id}>: "
+                + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
             },
         ]
         loading_text = translate(
@@ -91,7 +94,7 @@ def start_convo(
             client=client,
             wip_reply=wip_reply,
             context=context,
-            user_id=context.actor_user_id or context.user_id,
+            user_id=user_id,
             messages=messages,
             steam=steam,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
@@ -201,15 +204,20 @@ def reply_if_necessary(
 
         filtered_reply_messages = []
         for idx, reply in enumerate(reply_messages):
+            # Strip bot Slack user ID from initial message
+            if idx == 0:
+                reply["text"] = reply["text"].replace(f"<@{context.bot_user_id}>", "")
             if idx not in indices_to_remove:
                 filtered_reply_messages.append(reply)
         if len(filtered_reply_messages) == 0:
             return
 
         for reply in filtered_reply_messages:
+            msg_user_id = reply.get("user")
             messages.append(
                 {
-                    "content": format_openai_message_content(
+                    "content": f"<@{msg_user_id}>: "
+                    + format_openai_message_content(
                         reply.get("text"), TRANSLATE_MARKDOWN
                     ),
                     "role": "user",

@@ -192,9 +192,12 @@ def calculate_num_tokens(
 
 # Format message from OpenAI to display in Slack
 def format_assistant_reply(content: str, translate_markdown: bool) -> str:
-    # Remove OpenAI syntax tags since Slack doesn't render them in a message
     for o, n in [
+        # Remove leading newlines
         ("^\n+", ""),
+        # Remove prepended Slack user ID
+        ("^<@U.*?>\\s?:\\s?", ""),
+        # Remove OpenAI syntax tags since Slack doesn't render them in a message
         ("```\\s*[Rr]ust\n", "```\n"),
         ("```\\s*[Rr]uby\n", "```\n"),
         ("```\\s*[Ss]cala\n", "```\n"),
