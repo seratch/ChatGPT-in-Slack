@@ -36,6 +36,9 @@ def test_format_assistant_reply():
             "\n\n```latex\n\\documentclass{article}\n```",
             "```\n\\documentclass{article}\n```",
         ),
+        ("\n\n```bash\n#!/bin/bash\n```", "```\n#!/bin/bash\n```"),
+        ("\n\n```zsh\n#!/bin/zsh\n```", "```\n#!/bin/zsh\n```"),
+        ("\n\n```sh\n#!/bin/sh\n```", "```\n#!/bin/sh\n```"),
     ]:
         result = format_assistant_reply(content, False)
         assert result == expected
