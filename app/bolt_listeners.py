@@ -43,11 +43,11 @@ def start_convo(
     logger: logging.Logger,
 ):
     wip_reply = None
-    try:
-        if payload.get("thread_ts") is not None:
-            return
+    if payload.get("thread_ts") is not None:
+        return
 
-        openai_api_key = context.get("OPENAI_API_KEY")
+    openai_api_key = context.get("OPENAI_API_KEY")
+    try:
         if openai_api_key is None:
             client.chat_postMessage(
                 channel=context.channel_id,
@@ -206,7 +206,9 @@ def reply_if_necessary(
         for idx, reply in enumerate(reply_messages):
             # Strip bot Slack user ID from initial message
             if idx == 0:
-                reply["text"] = re.sub(f"<@{context.bot_user_id}>\\s*", "", reply["text"])
+                reply["text"] = re.sub(
+                    f"<@{context.bot_user_id}>\\s*", "", reply["text"]
+                )
             if idx not in indices_to_remove:
                 filtered_reply_messages.append(reply)
         if len(filtered_reply_messages) == 0:
