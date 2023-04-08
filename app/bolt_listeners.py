@@ -17,9 +17,11 @@ from app.openai_ops import (
     start_receiving_openai_response,
     format_openai_message_content,
     consume_openai_stream_to_write_reply,
+    build_system_text,
 )
-from app.markdown import slack_to_markdown
 from app.reply import post_wip_message
+from app.slack_ops import find_parent_message, is_no_mention_thread
+
 
 #
 # Listener functions
@@ -43,9 +45,19 @@ def start_convo(
     client: WebClient,
     logger: logging.Logger,
 ):
-    wip_reply = None
     if payload.get("thread_ts") is not None:
-        return
+        parent_message = find_parent_message(
+            client, context.channel_id, payload.get("thread_ts")
+        )
+        if parent_message is not None:
+            if is_no_mention_thread(context, parent_message):
+                # The message event handler will reply to this
+                return
+
+    wip_reply = None
+    # Replace placeholder for Slack user ID in the system prompt
+    system_text = build_system_text(SYSTEM_TEXT, TRANSLATE_MARKDOWN, context)
+    messages = [{"role": "system", "content": system_text}]
 
     openai_api_key = context.get("OPENAI_API_KEY")
     try:
@@ -56,24 +68,43 @@ def start_convo(
             )
             return
 
-        # Replace placeholder for Slack user ID in the system prompt
-        new_system_text = SYSTEM_TEXT.format(bot_user_id=context.bot_user_id)
-
-        # Translate format hint in system prompt
-        if TRANSLATE_MARKDOWN:
-            new_system_text = slack_to_markdown(new_system_text)
-
         user_id = context.actor_user_id or context.user_id
-        # Strip bot Slack user ID from initial message
-        msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
-        messages = [
-            {"role": "system", "content": new_system_text},
-            {
-                "role": "user",
-                "content": f"<@{user_id}>: "
-                + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
-            },
-        ]
+
+        if payload.get("thread_ts") is not None:
+            # Mentioning the bot user in a thread
+            replies_in_thread = client.conversations_replies(
+                channel=context.channel_id,
+                ts=payload.get("thread_ts"),
+                include_all_metadata=True,
+                limit=1000,
+            ).get("messages", [])
+            for reply in replies_in_thread:
+                messages.append(
+                    {
+                        "role": (
+                            "assistant"
+                            if reply["user"] == context.bot_user_id
+                            else "user"
+                        ),
+                        "content": (
+                            f"<@{reply['user']}>: "
+                            + format_openai_message_content(
+                                reply["text"], TRANSLATE_MARKDOWN
+                            )
+                        ),
+                    }
+                )
+        else:
+            # Strip bot Slack user ID from initial message
+            msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"<@{user_id}>: "
+                    + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
+                }
+            )
+
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
@@ -154,6 +185,7 @@ def respond_to_new_message(
     wip_reply = None
     try:
         is_in_dm_with_bot = payload.get("channel_type") == "im"
+        is_no_mention_required = False
         thread_ts = payload.get("thread_ts")
         if is_in_dm_with_bot is False and thread_ts is None:
             return
@@ -182,6 +214,7 @@ def respond_to_new_message(
                 seconds = time.time() - float(message.get("ts"))
                 if seconds < 86400:  # less than 1 day
                     messages_in_context.append(message)
+            is_no_mention_required = True
         else:
             # In a thread with the bot in a channel
             messages_in_context = client.conversations_replies(
@@ -190,6 +223,20 @@ def respond_to_new_message(
                 include_all_metadata=True,
                 limit=1000,
             ).get("messages", [])
+            the_parent_message_found = False
+            for message in messages_in_context:
+                if message.get("ts") == thread_ts:
+                    the_parent_message_found = True
+                    is_no_mention_required = is_no_mention_thread(context, message)
+                    break
+            if the_parent_message_found is False:
+                parent_message = find_parent_message(
+                    client, context.channel_id, thread_ts
+                )
+                if parent_message is not None:
+                    is_no_mention_required = is_no_mention_thread(
+                        context, parent_message
+                    )
         messages = []
         user_id = context.actor_user_id or context.user_id
         last_assistant_idx = -1
@@ -216,6 +263,8 @@ def respond_to_new_message(
                     messages = maybe_new_messages
                     last_assistant_idx = idx
 
+        if is_no_mention_required is False:
+            return
         if is_in_dm_with_bot is False and last_assistant_idx == -1:
             return
 
@@ -247,10 +296,9 @@ def respond_to_new_message(
             # To know whether this app needs to start a new convo
             if not next(filter(lambda msg: msg["role"] == "system", messages), None):
                 # Replace placeholder for Slack user ID in the system prompt
-                system_text = SYSTEM_TEXT.format(bot_user_id=context.bot_user_id)
-                # Translate format hint in system prompt
-                if TRANSLATE_MARKDOWN:
-                    system_text = slack_to_markdown(system_text)
+                system_text = build_system_text(
+                    SYSTEM_TEXT, TRANSLATE_MARKDOWN, context
+                )
                 messages.insert(0, {"role": "system", "content": system_text})
 
         loading_text = translate(
