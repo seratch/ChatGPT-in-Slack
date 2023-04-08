@@ -39,7 +39,7 @@ TIMEOUT_ERROR_MESSAGE = (
 DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
 
 
-def start_convo(
+def respond_to_app_mention(
     context: BoltContext,
     payload: dict,
     client: WebClient,
@@ -386,7 +386,7 @@ def respond_to_new_message(
 
 
 def register_listeners(app: App):
-    app.event("app_mention")(ack=just_ack, lazy=[start_convo])
+    app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
 
 
