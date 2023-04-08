@@ -182,6 +182,10 @@ def respond_to_new_message(
     client: WebClient,
     logger: logging.Logger,
 ):
+    if payload.get("bot_id") is not None and payload.get("bot_id") != context.bot_id:
+        # Skip a new message by a different app
+        return
+
     wip_reply = None
     try:
         is_in_dm_with_bot = payload.get("channel_type") == "im"
@@ -189,19 +193,13 @@ def respond_to_new_message(
         thread_ts = payload.get("thread_ts")
         if is_in_dm_with_bot is False and thread_ts is None:
             return
-        if (
-            payload.get("bot_id") is not None
-            and payload.get("bot_id") != context.bot_id
-        ):
-            # Skip a new message by a different app
-            return
 
         openai_api_key = context.get("OPENAI_API_KEY")
         if openai_api_key is None:
             return
 
         messages_in_context = []
-        if is_in_dm_with_bot is True:
+        if is_in_dm_with_bot is True and thread_ts is None:
             # In the DM with the bot
             past_messages = client.conversations_history(
                 channel=context.channel_id,
@@ -223,20 +221,24 @@ def respond_to_new_message(
                 include_all_metadata=True,
                 limit=1000,
             ).get("messages", [])
-            the_parent_message_found = False
-            for message in messages_in_context:
-                if message.get("ts") == thread_ts:
-                    the_parent_message_found = True
-                    is_no_mention_required = is_no_mention_thread(context, message)
-                    break
-            if the_parent_message_found is False:
-                parent_message = find_parent_message(
-                    client, context.channel_id, thread_ts
-                )
-                if parent_message is not None:
-                    is_no_mention_required = is_no_mention_thread(
-                        context, parent_message
+            if is_in_dm_with_bot is True:
+                is_no_mention_required = True
+            else:
+                the_parent_message_found = False
+                for message in messages_in_context:
+                    if message.get("ts") == thread_ts:
+                        the_parent_message_found = True
+                        is_no_mention_required = is_no_mention_thread(context, message)
+                        break
+                if the_parent_message_found is False:
+                    parent_message = find_parent_message(
+                        client, context.channel_id, thread_ts
                     )
+                    if parent_message is not None:
+                        is_no_mention_required = is_no_mention_thread(
+                            context, parent_message
+                        )
+
         messages = []
         user_id = context.actor_user_id or context.user_id
         last_assistant_idx = -1
@@ -268,6 +270,15 @@ def respond_to_new_message(
         if is_in_dm_with_bot is False and last_assistant_idx == -1:
             return
 
+        if is_in_dm_with_bot is True:
+            # To know whether this app needs to start a new convo
+            if not next(filter(lambda msg: msg["role"] == "system", messages), None):
+                # Replace placeholder for Slack user ID in the system prompt
+                system_text = build_system_text(
+                    SYSTEM_TEXT, TRANSLATE_MARKDOWN, context
+                )
+                messages.insert(0, {"role": "system", "content": system_text})
+
         filtered_messages_in_context = []
         for idx, reply in enumerate(messages_in_context):
             # Strip bot Slack user ID from initial message
@@ -292,22 +303,13 @@ def respond_to_new_message(
                 }
             )
 
-        if is_in_dm_with_bot is True:
-            # To know whether this app needs to start a new convo
-            if not next(filter(lambda msg: msg["role"] == "system", messages), None):
-                # Replace placeholder for Slack user ID in the system prompt
-                system_text = build_system_text(
-                    SYSTEM_TEXT, TRANSLATE_MARKDOWN, context
-                )
-                messages.insert(0, {"role": "system", "content": system_text})
-
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=None if is_in_dm_with_bot else payload["ts"],
+            thread_ts=payload.get("thread_ts") if is_in_dm_with_bot else payload["ts"],
             loading_text=loading_text,
             messages=messages,
             user=user_id,
