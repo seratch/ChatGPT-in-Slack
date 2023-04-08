@@ -230,3 +230,13 @@ def format_assistant_reply(content: str, translate_markdown: bool) -> str:
         content = markdown_to_slack(content)
 
     return content
+
+
+def build_system_text(
+    system_text_template: str, translate_markdown: bool, context: BoltContext
+):
+    system_text = system_text_template.format(bot_user_id=context.bot_user_id)
+    # Translate format hint in system prompt
+    if translate_markdown is True:
+        system_text = slack_to_markdown(system_text)
+    return system_text
