@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext, BoltResponse
@@ -144,7 +145,7 @@ def start_convo(
             )
 
 
-def reply_if_necessary(
+def respond_to_new_message(
     context: BoltContext,
     payload: dict,
     client: WebClient,
@@ -152,8 +153,9 @@ def reply_if_necessary(
 ):
     wip_reply = None
     try:
+        is_in_dm_with_bot = payload.get("channel_type") == "im"
         thread_ts = payload.get("thread_ts")
-        if thread_ts is None:
+        if is_in_dm_with_bot is False and thread_ts is None:
             return
         if (
             payload.get("bot_id") is not None
@@ -166,18 +168,33 @@ def reply_if_necessary(
         if openai_api_key is None:
             return
 
-        replies = client.conversations_replies(
-            channel=context.channel_id,
-            ts=thread_ts,
-            include_all_metadata=True,
-            limit=1000,
-        )
+        messages_in_context = []
+        if is_in_dm_with_bot is True:
+            # In the DM with the bot
+            past_messages = client.conversations_history(
+                channel=context.channel_id,
+                include_all_metadata=True,
+                limit=100,
+            ).get("messages", [])
+            past_messages.reverse()
+            # Remove old messages
+            for message in past_messages:
+                seconds = time.time() - float(message.get("ts"))
+                if seconds < 86400:  # less than 1 day
+                    messages_in_context.append(message)
+        else:
+            # In a thread with the bot in a channel
+            messages_in_context = client.conversations_replies(
+                channel=context.channel_id,
+                ts=thread_ts,
+                include_all_metadata=True,
+                limit=1000,
+            ).get("messages", [])
         messages = []
         user_id = context.actor_user_id or context.user_id
         last_assistant_idx = -1
-        reply_messages = replies.get("messages", [])
         indices_to_remove = []
-        for idx, reply in enumerate(reply_messages):
+        for idx, reply in enumerate(messages_in_context):
             maybe_event_type = reply.get("metadata", {}).get("event_type")
             if maybe_event_type == "chat-gpt-convo":
                 if context.bot_id != reply.get("bot_id"):
@@ -199,22 +216,22 @@ def reply_if_necessary(
                     messages = maybe_new_messages
                     last_assistant_idx = idx
 
-        if last_assistant_idx == -1:
+        if is_in_dm_with_bot is False and last_assistant_idx == -1:
             return
 
-        filtered_reply_messages = []
-        for idx, reply in enumerate(reply_messages):
+        filtered_messages_in_context = []
+        for idx, reply in enumerate(messages_in_context):
             # Strip bot Slack user ID from initial message
             if idx == 0:
                 reply["text"] = re.sub(
                     f"<@{context.bot_user_id}>\\s*", "", reply["text"]
                 )
             if idx not in indices_to_remove:
-                filtered_reply_messages.append(reply)
-        if len(filtered_reply_messages) == 0:
+                filtered_messages_in_context.append(reply)
+        if len(filtered_messages_in_context) == 0:
             return
 
-        for reply in filtered_reply_messages:
+        for reply in filtered_messages_in_context:
             msg_user_id = reply.get("user")
             messages.append(
                 {
@@ -226,13 +243,23 @@ def reply_if_necessary(
                 }
             )
 
+        if is_in_dm_with_bot is True:
+            # To know whether this app needs to start a new convo
+            if not next(filter(lambda msg: msg["role"] == "system", messages), None):
+                # Replace placeholder for Slack user ID in the system prompt
+                system_text = SYSTEM_TEXT.format(bot_user_id=context.bot_user_id)
+                # Translate format hint in system prompt
+                if TRANSLATE_MARKDOWN:
+                    system_text = slack_to_markdown(system_text)
+                messages.insert(0, {"role": "system", "content": system_text})
+
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=payload["ts"],
+            thread_ts=None if is_in_dm_with_bot else payload["ts"],
             loading_text=loading_text,
             messages=messages,
             user=user_id,
@@ -246,7 +273,7 @@ def reply_if_necessary(
 
         latest_replies = client.conversations_replies(
             channel=context.channel_id,
-            ts=thread_ts,
+            ts=wip_reply.get("ts"),
             include_all_metadata=True,
             limit=1000,
         )
@@ -310,7 +337,7 @@ def reply_if_necessary(
 
 def register_listeners(app: App):
     app.event("app_mention")(ack=just_ack, lazy=[start_convo])
-    app.event("message")(ack=just_ack, lazy=[reply_if_necessary])
+    app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
 
 
 MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
