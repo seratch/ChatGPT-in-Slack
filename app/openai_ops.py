@@ -1,7 +1,7 @@
 import threading
 import time
 import re
-from typing import List, Dict, Any, Generator
+from typing import List, Dict, Any, Generator, Tuple
 
 import openai
 from openai.error import Timeout
@@ -38,6 +38,29 @@ def format_openai_message_content(content: str, translate_markdown: bool) -> str
     return content
 
 
+def messages_within_context_window(
+    messages: List[Dict[str, str]],
+) -> Tuple[List[Dict[str, str]], int, int]:
+    # Remove old messages to make sure we have room for max_tokens
+    # See also: https://platform.openai.com/docs/guides/chat/introduction
+    # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
+    # TODO: currently we don't pass gpt-4 to this calculation method
+    max_context_tokens = 4096 - MAX_TOKENS - 1
+    num_context_tokens = 0  # Number of tokens in the context window just before the earliest message is deleted
+    while (num_tokens := calculate_num_tokens(messages)) > max_context_tokens:
+        removed = False
+        for i, message in enumerate(messages):
+            if message["role"] in ("user", "assistant"):
+                num_context_tokens = num_tokens
+                del messages[i]
+                removed = True
+                break
+        if not removed:
+            # Fall through and let the OpenAI error handler deal with it
+            break
+    return messages, num_context_tokens, max_context_tokens
+
+
 def start_receiving_openai_response(
     *,
     openai_api_key: str,
@@ -45,21 +68,6 @@ def start_receiving_openai_response(
     messages: List[Dict[str, str]],
     user: str,
 ) -> Generator[OpenAIObject, Any, None]:
-    # Remove old messages to make sure we have room for max_tokens
-    # See also: https://platform.openai.com/docs/guides/chat/introduction
-    # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
-    # TODO: currently we don't pass gpt-4 to this calculation method
-    while calculate_num_tokens(messages) >= 4096 - MAX_TOKENS:
-        removed = False
-        for i, message in enumerate(messages):
-            if message["role"] in ("user", "assistant"):
-                del messages[i]
-                removed = True
-                break
-        if not removed:
-            # Fall through and let the OpenAI error handler deal with it
-            break
-
     return openai.ChatCompletion.create(
         api_key=openai_api_key,
         model=model,
