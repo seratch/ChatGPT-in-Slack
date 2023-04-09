@@ -266,10 +266,8 @@ def respond_to_new_message(
 
         if is_no_mention_required is False:
             return
-        if is_in_dm_with_bot is False and last_assistant_idx == -1:
-            return
 
-        if is_in_dm_with_bot is True:
+        if is_in_dm_with_bot is True or last_assistant_idx == -1:
             # To know whether this app needs to start a new convo
             if not next(filter(lambda msg: msg["role"] == "system", messages), None):
                 # Replace placeholder for Slack user ID in the system prompt
