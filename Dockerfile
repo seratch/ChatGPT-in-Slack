@@ -1,9 +1,9 @@
-FROM python:3.11.2-slim-buster as builder
+FROM python:3.11.3-slim-buster as builder
 COPY requirements.txt /build/
 WORKDIR /build/
 RUN pip install -U pip && pip install -r requirements.txt
 
-FROM python:3.11.2-slim-buster as app
+FROM python:3.11.3-slim-buster as app
 WORKDIR /app/
 COPY *.py /app/
 RUN mkdir /app/app/
