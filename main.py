@@ -11,7 +11,11 @@ from app.env import (
     SLACK_APP_LOG_LEVEL,
     OPENAI_MODEL,
 )
-from app.home_tab import build_home_tab, DEFAULT_MESSAGE, DEFAULT_CONFIGURE_LABEL
+from app.slack_ops import (
+    build_home_tab,
+    DEFAULT_HOME_TAB_MESSAGE,
+    DEFAULT_HOME_TAB_CONFIGURE_LABEL,
+)
 from app.i18n import translate
 
 
@@ -33,12 +37,14 @@ if __name__ == "__main__":
     def render_home_tab(client: WebClient, context: BoltContext):
         already_set_api_key = os.environ["OPENAI_API_KEY"]
         text = translate(
-            openai_api_key=already_set_api_key, context=context, text=DEFAULT_MESSAGE
+            openai_api_key=already_set_api_key,
+            context=context,
+            text=DEFAULT_HOME_TAB_MESSAGE,
         )
         configure_label = translate(
             openai_api_key=already_set_api_key,
             context=context,
-            text=DEFAULT_CONFIGURE_LABEL,
+            text=DEFAULT_HOME_TAB_CONFIGURE_LABEL,
         )
         client.views_publish(
             user_id=context.user_id,

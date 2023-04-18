@@ -12,11 +12,11 @@ from slack_bolt import BoltContext
 from slack_sdk.web import WebClient
 
 from app.markdown import slack_to_markdown, markdown_to_slack
-from app.reply import update_wip_message
+from app.slack_ops import update_wip_message
 
-#
+# ----------------------------
 # Internal functions
-#
+# ----------------------------
 
 MAX_TOKENS = 1024
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"

@@ -20,7 +20,11 @@ from slack_bolt import App, Ack, BoltContext
 
 from app.bolt_listeners import register_listeners, before_authorize
 from app.env import USE_SLACK_LANGUAGE, SLACK_APP_LOG_LEVEL, DEFAULT_OPENAI_MODEL
-from app.home_tab import build_home_tab, DEFAULT_MESSAGE, DEFAULT_CONFIGURE_LABEL
+from app.slack_ops import (
+    build_home_tab,
+    DEFAULT_HOME_TAB_MESSAGE,
+    DEFAULT_HOME_TAB_CONFIGURE_LABEL,
+)
 from app.i18n import translate
 
 #
@@ -150,8 +154,8 @@ def handler(event, context_):
 
     @app.event("app_home_opened")
     def render_home_tab(client: WebClient, context: BoltContext):
-        message = DEFAULT_MESSAGE
-        configure_label = DEFAULT_CONFIGURE_LABEL
+        message = DEFAULT_HOME_TAB_MESSAGE
+        configure_label = DEFAULT_HOME_TAB_CONFIGURE_LABEL
         try:
             s3_client.get_object(Bucket=openai_bucket_name, Key=context.team_id)
             message = "This app is ready to use in this workspace :raised_hands:"
@@ -166,7 +170,7 @@ def handler(event, context_):
             configure_label = translate(
                 openai_api_key=openai_api_key,
                 context=context,
-                text=DEFAULT_CONFIGURE_LABEL,
+                text=DEFAULT_HOME_TAB_CONFIGURE_LABEL,
             )
 
         client.views_publish(

@@ -19,8 +19,7 @@ from app.openai_ops import (
     consume_openai_stream_to_write_reply,
     build_system_text,
 )
-from app.reply import post_wip_message
-from app.slack_ops import find_parent_message, is_no_mention_thread
+from app.slack_ops import find_parent_message, is_no_mention_thread, post_wip_message
 
 
 #
