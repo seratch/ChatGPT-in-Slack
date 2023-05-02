@@ -19,7 +19,12 @@ from app.slack_ops import update_wip_message
 # ----------------------------
 
 MAX_TOKENS = 1024
+GPT_3_5_TURBO_MODEL = "gpt-3.5-turbo"
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
+GPT_4_MODEL = "gpt-4"
+GPT_4_0314_MODEL = "gpt-4-0314"
+GPT_4_32K_MODEL = "gpt-4-32k"
+GPT_4_32K_0314_MODEL = "gpt-4-32k-0314"
 
 
 # Format message from Slack to send to OpenAI
@@ -40,12 +45,12 @@ def format_openai_message_content(content: str, translate_markdown: bool) -> str
 
 def messages_within_context_window(
     messages: List[Dict[str, str]],
+    model: str,
 ) -> Tuple[List[Dict[str, str]], int, int]:
     # Remove old messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
-    # > total tokens must be below the model’s maximum limit (4096 tokens for gpt-3.5-turbo-0301)
-    # TODO: currently we don't pass gpt-4 to this calculation method
-    max_context_tokens = 4096 - MAX_TOKENS - 1
+    # > total tokens must be below the model’s maximum limit (e.g., 4096 tokens for gpt-3.5-turbo-0301)
+    max_context_tokens = context_length(model) - MAX_TOKENS - 1
     num_context_tokens = 0  # Number of tokens in the context window just before the earliest message is deleted
     while (num_tokens := calculate_num_tokens(messages)) > max_context_tokens:
         removed = False
@@ -167,9 +172,31 @@ def consume_openai_stream_to_write_reply(
             pass
 
 
+def context_length(
+    model: str,
+) -> int:
+    if model == GPT_3_5_TURBO_MODEL:
+        # Note that GPT_3_5_TURBO_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_0301_MODEL.
+        return context_length(model=GPT_3_5_TURBO_0301_MODEL)
+    elif model == GPT_4_MODEL:
+        # Note that GPT_4_MODEL may change over time. Return context length assuming GPT_4_0314_MODEL.
+        return context_length(model=GPT_4_0314_MODEL)
+    elif model == GPT_4_32K_MODEL:
+        # Note that GPT_4_32K_MODEL may change over time. Return context length assuming GPT_4_32K_0314_MODEL.
+        return context_length(model=GPT_4_32K_0314_MODEL)
+    elif model == GPT_3_5_TURBO_0301_MODEL:
+        return 4096
+    elif model == GPT_4_0314_MODEL:
+        return 8192
+    elif model == GPT_4_32K_0314_MODEL:
+        return 32768
+    else:
+        error = f"Calculating the length of the context window for model {model} is not yet supported."
+        raise NotImplementedError(error)
+
+
 def calculate_num_tokens(
     messages: List[Dict[str, str]],
-    # TODO: adjustment for gpt-4
     model: str = GPT_3_5_TURBO_0301_MODEL,
 ) -> int:
     """Returns the number of tokens used by a list of messages."""
@@ -177,25 +204,39 @@ def calculate_num_tokens(
         encoding = tiktoken.encoding_for_model(model)
     except KeyError:
         encoding = tiktoken.get_encoding("cl100k_base")
-    if model == GPT_3_5_TURBO_0301_MODEL:
-        # note: future models may deviate from this
-        num_tokens = 0
-        for message in messages:
-            # every message follows <im_start>{role/name}\n{content}<im_end>\n
-            num_tokens += 4
-            for key, value in message.items():
-                num_tokens += len(encoding.encode(value))
-                if key == "name":  # if there's a name, the role is omitted
-                    num_tokens += -1  # role is always required and always 1 token
-        num_tokens += 2  # every reply is primed with <im_start>assistant
-        return num_tokens
+    if model == GPT_3_5_TURBO_MODEL:
+        # Note that GPT_3_5_TURBO_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_0301_MODEL.
+        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_0301_MODEL)
+    elif model == GPT_4_MODEL:
+        # Note that GPT_4_MODEL may change over time. Return num tokens assuming GPT_4_0314_MODEL.
+        return calculate_num_tokens(messages, model=GPT_4_0314_MODEL)
+    elif model == GPT_4_32K_MODEL:
+        # Note that GPT_4_32K_MODEL may change over time. Return num tokens assuming GPT_4_32K_0314_MODEL.
+        return calculate_num_tokens(messages, model=GPT_4_32K_0314_MODEL)
+    elif model == GPT_3_5_TURBO_0301_MODEL:
+        tokens_per_message = (
+            4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
+        )
+        tokens_per_name = -1  # if there's a name, the role is omitted
+    elif model == GPT_4_0314_MODEL or model == GPT_4_32K_0314_MODEL:
+        tokens_per_message = 3
+        tokens_per_name = 1
     else:
         error = (
-            f"Calculating the number of tokens for for model {model} is not yet supported. "
+            f"Calculating the number of tokens for model {model} is not yet supported. "
             "See https://github.com/openai/openai-python/blob/main/chatml.md "
             "for information on how messages are converted to tokens."
         )
         raise NotImplementedError(error)
+    num_tokens = 0
+    for message in messages:
+        num_tokens += tokens_per_message
+        for key, value in message.items():
+            num_tokens += len(encoding.encode(value))
+            if key == "name":
+                num_tokens += tokens_per_name
+    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+    return num_tokens
 
 
 # Format message from OpenAI to display in Slack

@@ -126,7 +126,7 @@ def respond_to_app_mention(
             messages,
             num_context_tokens,
             max_context_tokens,
-        ) = messages_within_context_window(messages)
+        ) = messages_within_context_window(messages, model=context["OPENAI_MODEL"])
         num_messages = len([msg for msg in messages if msg.get("role") != "system"])
         if num_messages == 0:
             update_wip_message(
@@ -339,7 +339,7 @@ def respond_to_new_message(
             messages,
             num_context_tokens,
             max_context_tokens,
-        ) = messages_within_context_window(messages)
+        ) = messages_within_context_window(messages, model=context["OPENAI_MODEL"])
         num_messages = len([msg for msg in messages if msg.get("role") != "system"])
         if num_messages == 0:
             update_wip_message(
