@@ -47,6 +47,22 @@ def test_markdown_to_slack():
             "~~ not strikethrough~~, ~~not strikethrough ~~, ~~ not strikethrough ~~, ~~~~, ~~ ~~, ~~  ~~, ~~   ~~",
             "~~ not strikethrough~~, ~~not strikethrough ~~, ~~ not strikethrough ~~, ~~~~, ~~ ~~, ~~  ~~, ~~   ~~",
         ),
+        (
+            """The following multiline code block shouldn't be translated:
+```
+if 4*q + r - t < n*t:
+    q, r, t, k, n, l = 10*q, 10*(r-n*t), t, k, (10*(3*q+r))//t - 10*n, l
+else:
+    q, r, t, k, n, l = q*l, (2*q+r)*l, t*l, k+1, (q*(7*k+2)+r*l)//(t*l), l+2
+```""",
+            """The following multiline code block shouldn't be translated:
+```
+if 4*q + r - t < n*t:
+    q, r, t, k, n, l = 10*q, 10*(r-n*t), t, k, (10*(3*q+r))//t - 10*n, l
+else:
+    q, r, t, k, n, l = q*l, (2*q+r)*l, t*l, k+1, (q*(7*k+2)+r*l)//(t*l), l+2
+```""",
+        ),
     ]:
         result = markdown_to_slack(content)
         assert result == expected
@@ -86,6 +102,22 @@ def test_slack_to_markdown():
         (
             "~ not strikethrough~, ~not strikethrough ~, ~ not strikethrough ~, ~~, ~ ~, ~  ~, ~   ~",
             "~ not strikethrough~, ~not strikethrough ~, ~ not strikethrough ~, ~~, ~ ~, ~  ~, ~   ~",
+        ),
+        (
+            """The following multiline code block shouldn't be translated:
+```
+if 4*q + r - t < n*t:
+    q, r, t, k, n, l = 10*q, 10*(r-n*t), t, k, (10*(3*q+r))//t - 10*n, l
+else:
+    q, r, t, k, n, l = q*l, (2*q+r)*l, t*l, k+1, (q*(7*k+2)+r*l)//(t*l), l+2
+```""",
+            """The following multiline code block shouldn't be translated:
+```
+if 4*q + r - t < n*t:
+    q, r, t, k, n, l = 10*q, 10*(r-n*t), t, k, (10*(3*q+r))//t - 10*n, l
+else:
+    q, r, t, k, n, l = q*l, (2*q+r)*l, t*l, k+1, (q*(7*k+2)+r*l)//(t*l), l+2
+```""",
         ),
     ]:
         result = slack_to_markdown(content)

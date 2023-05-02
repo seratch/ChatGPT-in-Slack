@@ -5,7 +5,7 @@ import re
 # See also: https://api.slack.com/reference/surfaces/formatting#basics
 def slack_to_markdown(content: str) -> str:
     # Split the input string into parts based on code blocks and inline code
-    parts = re.split(r"(```.+?```|`[^`\n]+?`)", content)
+    parts = re.split(r"(?s)(```.+?```|`[^`\n]+?`)", content)
 
     # Apply the bold, italic, and strikethrough formatting to text not within code
     result = ""
@@ -27,7 +27,7 @@ def slack_to_markdown(content: str) -> str:
 # See also: https://api.slack.com/reference/surfaces/formatting#basics
 def markdown_to_slack(content: str) -> str:
     # Split the input string into parts based on code blocks and inline code
-    parts = re.split(r"(```.+?```|`[^`\n]+?`)", content)
+    parts = re.split(r"(?s)(```.+?```|`[^`\n]+?`)", content)
 
     # Apply the bold, italic, and strikethrough formatting to text not within code
     result = ""
