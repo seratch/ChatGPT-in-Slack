@@ -219,8 +219,8 @@ def format_assistant_reply(content: str, translate_markdown: bool) -> str:
         ("```\\s*[Ss][Qq][Ll]\n", "```\n"),
         ("```\\s*[Pp][Hh][Pp]\n", "```\n"),
         ("```\\s*[Pp][Ee][Rr][Ll]\n", "```\n"),
-        ("```\\s*[Jj]ava[Ss]cript", "```\n"),
-        ("```\\s*[Ty]ype[Ss]cript", "```\n"),
+        ("```\\s*[Jj]ava[Ss]cript\n", "```\n"),
+        ("```\\s*[Ty]ype[Ss]cript\n", "```\n"),
         ("```\\s*[Pp]ython\n", "```\n"),
     ]:
         content = re.sub(o, n, content)
