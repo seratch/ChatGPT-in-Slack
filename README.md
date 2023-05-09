@@ -44,6 +44,8 @@ export OPENAI_API_KEY=sk-...
 
 # Optional: gpt-3.5-turbo and gpt-4 are currently supported (default: gpt-3.5-turbo)
 export OPENAI_MODEL=gpt-4
+# Optional: Model temperature between 0 and 2 (default: 1.0)
+export OPENAI_TEMPERATURE=1
 # Optional: You can adjust the timeout seconds for OpenAI calls (default: 30)
 export OPENAI_TIMEOUT_SECONDS=60
 # Optional: You can include priming instructions for ChatGPT to fine tune the bot purpose

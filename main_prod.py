@@ -23,6 +23,7 @@ from app.env import (
     USE_SLACK_LANGUAGE,
     SLACK_APP_LOG_LEVEL,
     DEFAULT_OPENAI_MODEL,
+    DEFAULT_OPENAI_TEMPERATURE,
     DEFAULT_OPENAI_API_TYPE,
     DEFAULT_OPENAI_API_BASE,
     DEFAULT_OPENAI_API_VERSION,
@@ -152,10 +153,14 @@ def handler(event, context_):
                 config = json.loads(config_str)
                 context["OPENAI_API_KEY"] = config.get("api_key")
                 context["OPENAI_MODEL"] = config.get("model")
+                context["OPENAI_TEMPERATURE"] = config.get(
+                    "temperature", DEFAULT_OPENAI_TEMPERATURE
+                )
             else:
                 # The legacy data format
                 context["OPENAI_API_KEY"] = config_str
                 context["OPENAI_MODEL"] = DEFAULT_OPENAI_MODEL
+                context["OPENAI_TEMPERATURE"] = DEFAULT_OPENAI_TEMPERATURE
             context["OPENAI_API_TYPE"] = DEFAULT_OPENAI_API_TYPE
             context["OPENAI_API_BASE"] = DEFAULT_OPENAI_API_BASE
             context["OPENAI_API_VERSION"] = DEFAULT_OPENAI_API_VERSION
