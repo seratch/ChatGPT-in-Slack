@@ -144,6 +144,7 @@ def respond_to_app_mention(
             stream = start_receiving_openai_response(
                 openai_api_key=openai_api_key,
                 model=context["OPENAI_MODEL"],
+                temperature=context["OPENAI_TEMPERATURE"],
                 messages=messages,
                 user=context.user_id,
                 openai_api_type=context["OPENAI_API_TYPE"],
@@ -360,6 +361,7 @@ def respond_to_new_message(
             stream = start_receiving_openai_response(
                 openai_api_key=openai_api_key,
                 model=context["OPENAI_MODEL"],
+                temperature=context["OPENAI_TEMPERATURE"],
                 messages=messages,
                 user=user_id,
                 openai_api_type=context["OPENAI_API_TYPE"],
