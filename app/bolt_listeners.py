@@ -12,6 +12,7 @@ from app.env import (
     SYSTEM_TEXT,
     TRANSLATE_MARKDOWN,
     OPENAI_MAX_TOKENS,
+    OPENAI_TEMPERATURE,
 )
 from app.i18n import translate
 from app.openai_ops import (
@@ -172,6 +173,7 @@ def respond_to_app_mention(
                 steam = start_receiving_openai_response(
                     openai_api_key=openai_api_key,
                     model=context["OPENAI_MODEL"],
+                    temperature=OPENAI_TEMPERATURE,
                     max_tokens=OPENAI_MAX_TOKENS,
                     messages=messages,
                     user=context.user_id,
@@ -410,6 +412,7 @@ def respond_to_new_message(
                 steam = start_receiving_openai_response(
                     openai_api_key=openai_api_key,
                     model=context["OPENAI_MODEL"],
+                    temperature=OPENAI_TEMPERATURE,
                     max_tokens=OPENAI_MAX_TOKENS,
                     messages=messages,
                     user=user_id,
