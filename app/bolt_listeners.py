@@ -11,6 +11,7 @@ from app.env import (
     OPENAI_TIMEOUT_SECONDS,
     SYSTEM_TEXT,
     TRANSLATE_MARKDOWN,
+    OPENAI_MAX_TOKENS,
 )
 from app.i18n import translate
 from app.openai_ops import (
@@ -27,6 +28,10 @@ from app.slack_ops import (
     update_wip_message,
 )
 
+from app.utils import (
+    censor_string,
+    upload_image_to_slack,
+)
 
 #
 # Listener functions
@@ -94,14 +99,19 @@ def respond_to_app_mention(
                         "content": (
                             f"<@{reply['user']}>: "
                             + format_openai_message_content(
-                                reply["text"], TRANSLATE_MARKDOWN
+                                censor_string(input_string=reply["text"]),
+                                TRANSLATE_MARKDOWN,
                             )
                         ),
                     }
                 )
         else:
             # Strip bot Slack user ID from initial message
-            msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
+            msg_text = censor_string(
+                input_string=re.sub(
+                    f"<@{context.bot_user_id}>\\s*", "", payload["text"]
+                )
+            )
             messages.append(
                 {
                     "role": "user",
@@ -109,6 +119,12 @@ def respond_to_app_mention(
                     + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
                 }
             )
+
+        latest_user_reply = ""
+        if messages[-1]["role"] == "user":
+            latest_user_reply = re.sub(
+                r"<@[^>]+>: ", "", messages[-1]["content"]
+            ).strip()
 
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
@@ -126,7 +142,9 @@ def respond_to_app_mention(
             messages,
             num_context_tokens,
             max_context_tokens,
-        ) = messages_within_context_window(messages, model=context["OPENAI_MODEL"])
+        ) = messages_within_context_window(
+            messages, model=context["OPENAI_MODEL"], max_tokens=OPENAI_MAX_TOKENS
+        )
         num_messages = len([msg for msg in messages if msg.get("role") != "system"])
         if num_messages == 0:
             update_wip_message(
@@ -138,22 +156,36 @@ def respond_to_app_mention(
                 user=context.user_id,
             )
         else:
-            steam = start_receiving_openai_response(
-                openai_api_key=openai_api_key,
-                model=context["OPENAI_MODEL"],
-                messages=messages,
-                user=context.user_id,
-            )
-            consume_openai_stream_to_write_reply(
-                client=client,
-                wip_reply=wip_reply,
-                context=context,
-                user_id=user_id,
-                messages=messages,
-                steam=steam,
-                timeout_seconds=OPENAI_TIMEOUT_SECONDS,
-                translate_markdown=TRANSLATE_MARKDOWN,
-            )
+            # Begin Render image
+            if "[image]" in latest_user_reply:
+                upload_image_to_slack(
+                    client=client,
+                    openai_api_key=openai_api_key,
+                    prompt=latest_user_reply.replace("[image]", "").strip(),
+                    channel_id=context.channel_id,
+                    thread_ts=payload["ts"],
+                    wip_reply_ts=wip_reply["message"]["ts"],
+                    user_id=context.user_id,
+                )
+            # End Render image
+            else:
+                steam = start_receiving_openai_response(
+                    openai_api_key=openai_api_key,
+                    model=context["OPENAI_MODEL"],
+                    max_tokens=OPENAI_MAX_TOKENS,
+                    messages=messages,
+                    user=context.user_id,
+                )
+                consume_openai_stream_to_write_reply(
+                    client=client,
+                    wip_reply=wip_reply,
+                    context=context,
+                    user_id=user_id,
+                    messages=messages,
+                    steam=steam,
+                    timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+                    translate_markdown=TRANSLATE_MARKDOWN,
+                )
 
     except Timeout:
         if wip_reply is not None:
@@ -317,11 +349,18 @@ def respond_to_new_message(
                 {
                     "content": f"<@{msg_user_id}>: "
                     + format_openai_message_content(
-                        reply.get("text"), TRANSLATE_MARKDOWN
+                        censor_string(input_string=reply.get("text")),
+                        TRANSLATE_MARKDOWN,
                     ),
                     "role": "user",
                 }
             )
+
+        latest_user_reply = ""
+        if messages[-1]["role"] == "user":
+            latest_user_reply = re.sub(
+                r"<@[^>]+>: ", "", messages[-1]["content"]
+            ).strip()
 
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
@@ -339,7 +378,9 @@ def respond_to_new_message(
             messages,
             num_context_tokens,
             max_context_tokens,
-        ) = messages_within_context_window(messages, model=context["OPENAI_MODEL"])
+        ) = messages_within_context_window(
+            messages, model=context["OPENAI_MODEL"], max_tokens=OPENAI_MAX_TOKENS
+        )
         num_messages = len([msg for msg in messages if msg.get("role") != "system"])
         if num_messages == 0:
             update_wip_message(
@@ -351,40 +392,56 @@ def respond_to_new_message(
                 user=context.user_id,
             )
         else:
-            steam = start_receiving_openai_response(
-                openai_api_key=openai_api_key,
-                model=context["OPENAI_MODEL"],
-                messages=messages,
-                user=user_id,
-            )
-
-            latest_replies = client.conversations_replies(
-                channel=context.channel_id,
-                ts=wip_reply.get("ts"),
-                include_all_metadata=True,
-                limit=1000,
-            )
-            if (
-                latest_replies.get("messages", [])[-1]["ts"]
-                != wip_reply["message"]["ts"]
-            ):
-                # Since a new reply will come soon, this app abandons this reply
-                client.chat_delete(
-                    channel=context.channel_id,
-                    ts=wip_reply["message"]["ts"],
+            # Begin Render image
+            if "[image]" in latest_user_reply:
+                upload_image_to_slack(
+                    client=client,
+                    openai_api_key=openai_api_key,
+                    prompt=latest_user_reply.replace("[image]", "").strip(),
+                    channel_id=context.channel_id,
+                    thread_ts=payload.get("thread_ts")
+                    if is_in_dm_with_bot
+                    else payload["ts"],
+                    wip_reply_ts=wip_reply["message"]["ts"],
+                    user_id=context.user_id,
                 )
-                return
+            # End Render image
+            else:
+                steam = start_receiving_openai_response(
+                    openai_api_key=openai_api_key,
+                    model=context["OPENAI_MODEL"],
+                    max_tokens=OPENAI_MAX_TOKENS,
+                    messages=messages,
+                    user=user_id,
+                )
 
-            consume_openai_stream_to_write_reply(
-                client=client,
-                wip_reply=wip_reply,
-                context=context,
-                user_id=user_id,
-                messages=messages,
-                steam=steam,
-                timeout_seconds=OPENAI_TIMEOUT_SECONDS,
-                translate_markdown=TRANSLATE_MARKDOWN,
-            )
+                latest_replies = client.conversations_replies(
+                    channel=context.channel_id,
+                    ts=wip_reply.get("ts"),
+                    include_all_metadata=True,
+                    limit=1000,
+                )
+                if (
+                    latest_replies.get("messages", [])[-1]["ts"]
+                    != wip_reply["message"]["ts"]
+                ):
+                    # Since a new reply will come soon, this app abandons this reply
+                    client.chat_delete(
+                        channel=context.channel_id,
+                        ts=wip_reply["message"]["ts"],
+                    )
+                    return
+
+                consume_openai_stream_to_write_reply(
+                    client=client,
+                    wip_reply=wip_reply,
+                    context=context,
+                    user_id=user_id,
+                    messages=messages,
+                    steam=steam,
+                    timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+                    translate_markdown=TRANSLATE_MARKDOWN,
+                )
 
     except Timeout:
         if wip_reply is not None:

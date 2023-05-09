@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  chatgptbot:
+    container_name: chatgptbot
+    build: .
+    environment:
+      SLACK_APP_TOKEN: $SLACK_APP_TOKEN
+      SLACK_BOT_TOKEN: $SLACK_BOT_TOKEN
+      OPENAI_API_KEY: $OPENAI_API_KEY
+      BING_AUTH_COOKIE: $BING_AUTH_COOKIE
+      ADMIN_SLACK_IDS: $ADMIN_SLACK_IDS

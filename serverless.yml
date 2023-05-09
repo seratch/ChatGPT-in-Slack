@@ -1,9 +1,11 @@
-frameworkVersion: '3'
+frameworkVersion: "3"
 service: slack-chat-gpt-bot
+
 provider:
   name: aws
   runtime: python3.9
   region: us-east-1
+  stage: ${opt:stage, 'prod'}
   iam:
     role:
       statements:
@@ -14,37 +16,42 @@ provider:
           Resource: "*"
         - Effect: Allow
           Action:
-            - 's3:ListBucket'
-            - 's3:GetObject'
-            - 's3:GetObjectAcl'
-            - 's3:PutObject'
-            - 's3:PutObjectAcl'
-            - 's3:ReplicateObject'
-            - 's3:DeleteObject'
+            - "s3:ListBucket"
+            - "s3:GetObject"
+            - "s3:GetObjectAcl"
+            - "s3:PutObject"
+            - "s3:PutObjectAcl"
+            - "s3:ReplicateObject"
+            - "s3:DeleteObject"
           Resource:
-            - arn:aws:s3:::${env:SLACK_INSTALLATION_S3_BUCKET_NAME}
-            - arn:aws:s3:::${env:SLACK_INSTALLATION_S3_BUCKET_NAME}/*
-            - arn:aws:s3:::${env:SLACK_STATE_S3_BUCKET_NAME}
-            - arn:aws:s3:::${env:SLACK_STATE_S3_BUCKET_NAME}/*
-            - arn:aws:s3:::${env:OPENAI_S3_BUCKET_NAME}
-            - arn:aws:s3:::${env:OPENAI_S3_BUCKET_NAME}/*
+            - arn:aws:s3:::${self:custom.SLACK_STATE_S3_BUCKET_NAME}
+            - arn:aws:s3:::${self:custom.SLACK_STATE_S3_BUCKET_NAME}/*
+            - arn:aws:s3:::${self:custom.SLACK_INSTALLATION_S3_BUCKET_NAME}
+            - arn:aws:s3:::${self:custom.SLACK_INSTALLATION_S3_BUCKET_NAME}/*
+            - arn:aws:s3:::${self:custom.OPENAI_S3_BUCKET_NAME}
+            - arn:aws:s3:::${self:custom.OPENAI_S3_BUCKET_NAME}/*
   environment:
-    SERVERLESS_STAGE: ${opt:stage, 'prod'}
     SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
     SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
     SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
     SLACK_SCOPES: ${env:SLACK_SCOPES}
-    SLACK_INSTALLATION_S3_BUCKET_NAME: ${env:SLACK_INSTALLATION_S3_BUCKET_NAME}
-    SLACK_STATE_S3_BUCKET_NAME: ${env:SLACK_STATE_S3_BUCKET_NAME}
-    OPENAI_S3_BUCKET_NAME: ${env:OPENAI_S3_BUCKET_NAME}
-    OPENAI_TIMEOUT_SECONDS: 25
+    SLACK_INSTALLATION_S3_BUCKET_NAME: ${self:custom.SLACK_INSTALLATION_S3_BUCKET_NAME}
+    SLACK_STATE_S3_BUCKET_NAME: ${self:custom.SLACK_STATE_S3_BUCKET_NAME}
+    ADMIN_SLACK_IDS: ${env:ADMIN_SLACK_IDS}
+    OPENAI_MODEL: "gpt-3.5-turbo"
+    OPENAI_MAX_TOKENS: 3072
+    OPENAI_S3_BUCKET_NAME: ${self:custom.OPENAI_S3_BUCKET_NAME}
+    OPENAI_TIMEOUT_SECONDS: 30
     SLACK_APP_LOG_LEVEL: WARN
     TRANSLATE_MARKDOWN: true
+    # Get Bing auth_cookies by login bing in browser and using javascript "cookieStore.get("_U").then(result => console.log(result.value))"
+    BING_AUTH_COOKIE: ${env:BING_AUTH_COOKIE}
 
 functions:
   app:
     handler: main_prod.handler
     timeout: 29
+    memorySize: 2048
     events:
       - httpApi:
           path: /slack/events
@@ -56,16 +63,44 @@ functions:
           path: /slack/oauth_redirect
           method: get
 
+resources:
+  Resources:
+    SlackInstallationS3:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.SLACK_INSTALLATION_S3_BUCKET_NAME}
+    SlackStateS3:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.SLACK_STATE_S3_BUCKET_NAME}
+    OpenaiDataS3:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: ${self:custom.OPENAI_S3_BUCKET_NAME}
+
 package:
   patterns:
-    - "!.venv/**"
-    - "!node_modules/**"
-    - "!.idea/**"
+    - "!**/.venv/**"
+    - "!**/node_modules/**"
+    - "!**/.idea/**"
+    - "!Dockerfile"
+    - "!manifest*"
+    - "!README.md"
+    - "!main.py"
+    - "!requirements.txt"
+    - "!docker-compose.yml"
+    - "!*.sh"
+    - "!.flake8"
+    - "!*.json"
 
 plugins:
   - serverless-python-requirements
+
 custom:
+  SLACK_INSTALLATION_S3_BUCKET_NAME: ${self:provider.stage}-slack-installation
+  SLACK_STATE_S3_BUCKET_NAME: ${self:provider.stage}-slack-state
+  OPENAI_S3_BUCKET_NAME: ${self:provider.stage}-openai-data
   pythonRequirements:
     zip: true
     slim: true
-    dockerizePip: true  # This option must be enabled for including Linux compatible *.so files
+    dockerizePip: true # This option must be enabled for including Linux compatible *.so files

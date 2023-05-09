@@ -19,7 +19,12 @@ from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 from slack_bolt import App, Ack, BoltContext
 
 from app.bolt_listeners import register_listeners, before_authorize
-from app.env import USE_SLACK_LANGUAGE, SLACK_APP_LOG_LEVEL, DEFAULT_OPENAI_MODEL
+from app.env import (
+    USE_SLACK_LANGUAGE,
+    SLACK_APP_LOG_LEVEL,
+    DEFAULT_OPENAI_MODEL,
+    ADMIN_SLACK_IDS,
+)
 from app.slack_ops import (
     build_home_tab,
     DEFAULT_HOME_TAB_MESSAGE,
@@ -158,7 +163,7 @@ def handler(event, context_):
         configure_label = DEFAULT_HOME_TAB_CONFIGURE_LABEL
         try:
             s3_client.get_object(Bucket=openai_bucket_name, Key=context.team_id)
-            message = "This app is ready to use in this workspace :raised_hands:"
+            message = "*Special Syntax:*\n- Generate image with your describe text : [image]Describe_Your_Image"
         except:  # noqa: E722
             pass
 
@@ -173,10 +178,22 @@ def handler(event, context_):
                 text=DEFAULT_HOME_TAB_CONFIGURE_LABEL,
             )
 
-        client.views_publish(
-            user_id=context.user_id,
-            view=build_home_tab(message, configure_label),
-        )
+            # Check if the user who opened the home tab is admin
+            current_slack_id = context.user_id
+            if ADMIN_SLACK_IDS == "":
+                found = True
+            else:
+                found = current_slack_id in ADMIN_SLACK_IDS.split(",")
+
+            home_tab = (
+                build_home_tab(message, configure_label)
+                if found
+                else build_home_tab(message)
+            )
+            client.views_publish(
+                user_id=context.user_id,
+                view=home_tab,
+            )
 
     @app.action("configure")
     def handle_some_action(ack, body: dict, client: WebClient, context: BoltContext):

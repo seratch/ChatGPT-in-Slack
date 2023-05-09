@@ -88,23 +88,22 @@ DEFAULT_HOME_TAB_MESSAGE = (
 DEFAULT_HOME_TAB_CONFIGURE_LABEL = "Configure"
 
 
-def build_home_tab(message: str, configure_label: str) -> dict:
-    return {
-        "type": "home",
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": message,
-                },
-                "accessory": {
-                    "action_id": "configure",
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": configure_label},
-                    "style": "primary",
-                    "value": "api_key",
-                },
-            }
-        ],
-    }
+def build_home_tab(message: str, configure_label: str = None) -> dict:
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": message,
+            },
+        }
+    ]
+    if configure_label:
+        blocks[0]["accessory"] = {
+            "action_id": "configure",
+            "type": "button",
+            "text": {"type": "plain_text", "text": configure_label},
+            "style": "primary",
+            "value": "api_key",
+        }
+    return {"type": "home", "blocks": blocks}

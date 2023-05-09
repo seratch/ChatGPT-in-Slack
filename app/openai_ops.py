@@ -18,7 +18,7 @@ from app.slack_ops import update_wip_message
 # Internal functions
 # ----------------------------
 
-MAX_TOKENS = 1024
+# MAX_TOKENS = 3072
 GPT_3_5_TURBO_MODEL = "gpt-3.5-turbo"
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
 GPT_4_MODEL = "gpt-4"
@@ -46,11 +46,12 @@ def format_openai_message_content(content: str, translate_markdown: bool) -> str
 def messages_within_context_window(
     messages: List[Dict[str, str]],
     model: str,
+    max_tokens: int,
 ) -> Tuple[List[Dict[str, str]], int, int]:
     # Remove old messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (e.g., 4096 tokens for gpt-3.5-turbo-0301)
-    max_context_tokens = context_length(model) - MAX_TOKENS - 1
+    max_context_tokens = context_length(model) - max_tokens - 1
     num_context_tokens = 0  # Number of tokens in the context window just before the earliest message is deleted
     while (num_tokens := calculate_num_tokens(messages)) > max_context_tokens:
         removed = False
@@ -70,6 +71,7 @@ def start_receiving_openai_response(
     *,
     openai_api_key: str,
     model: str,
+    max_tokens: int,
     messages: List[Dict[str, str]],
     user: str,
 ) -> Generator[OpenAIObject, Any, None]:
@@ -79,7 +81,7 @@ def start_receiving_openai_response(
         messages=messages,
         top_p=1,
         n=1,
-        max_tokens=MAX_TOKENS,
+        max_tokens=max_tokens,
         temperature=1,
         presence_penalty=0,
         frequency_penalty=0,
