@@ -96,7 +96,7 @@ def consume_openai_stream_to_write_reply(
     context: BoltContext,
     user_id: str,
     messages: List[Dict[str, str]],
-    steam: Generator[OpenAIObject, Any, None],
+    stream: Generator[OpenAIObject, Any, None],
     timeout_seconds: int,
     translate_markdown: bool,
 ):
@@ -107,7 +107,7 @@ def consume_openai_stream_to_write_reply(
     threads = []
     try:
         loading_character = " ... :writing_hand:"
-        for chunk in steam:
+        for chunk in stream:
             spent_seconds = time.time() - start_time
             if timeout_seconds < spent_seconds:
                 raise Timeout()
@@ -167,7 +167,7 @@ def consume_openai_stream_to_write_reply(
             except Exception:
                 pass
         try:
-            steam.close()
+            stream.close()
         except Exception:
             pass
 

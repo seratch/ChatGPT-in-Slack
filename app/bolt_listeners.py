@@ -138,7 +138,7 @@ def respond_to_app_mention(
                 user=context.user_id,
             )
         else:
-            steam = start_receiving_openai_response(
+            stream = start_receiving_openai_response(
                 openai_api_key=openai_api_key,
                 model=context["OPENAI_MODEL"],
                 messages=messages,
@@ -150,7 +150,7 @@ def respond_to_app_mention(
                 context=context,
                 user_id=user_id,
                 messages=messages,
-                steam=steam,
+                stream=stream,
                 timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 translate_markdown=TRANSLATE_MARKDOWN,
             )
@@ -351,7 +351,7 @@ def respond_to_new_message(
                 user=context.user_id,
             )
         else:
-            steam = start_receiving_openai_response(
+            stream = start_receiving_openai_response(
                 openai_api_key=openai_api_key,
                 model=context["OPENAI_MODEL"],
                 messages=messages,
@@ -381,7 +381,7 @@ def respond_to_new_message(
                 context=context,
                 user_id=user_id,
                 messages=messages,
-                steam=steam,
+                stream=stream,
                 timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 translate_markdown=TRANSLATE_MARKDOWN,
             )
