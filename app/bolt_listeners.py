@@ -27,6 +27,7 @@ from app.slack_ops import (
     update_wip_message,
 )
 
+from app.utils import redact_string
 
 #
 # Listener functions
@@ -84,6 +85,7 @@ def respond_to_app_mention(
                 limit=1000,
             ).get("messages", [])
             for reply in replies_in_thread:
+                reply_text = redact_string(reply.get("text"))
                 messages.append(
                     {
                         "role": (
@@ -94,7 +96,7 @@ def respond_to_app_mention(
                         "content": (
                             f"<@{reply['user']}>: "
                             + format_openai_message_content(
-                                reply["text"], TRANSLATE_MARKDOWN
+                                reply_text, TRANSLATE_MARKDOWN
                             )
                         ),
                     }
@@ -102,6 +104,7 @@ def respond_to_app_mention(
         else:
             # Strip bot Slack user ID from initial message
             msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
+            msg_text = redact_string(msg_text)
             messages.append(
                 {
                     "role": "user",
@@ -313,12 +316,11 @@ def respond_to_new_message(
 
         for reply in filtered_messages_in_context:
             msg_user_id = reply.get("user")
+            reply_text = redact_string(reply.get("text"))
             messages.append(
                 {
                     "content": f"<@{msg_user_id}>: "
-                    + format_openai_message_content(
-                        reply.get("text"), TRANSLATE_MARKDOWN
-                    ),
+                    + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                     "role": "user",
                 }
             )
