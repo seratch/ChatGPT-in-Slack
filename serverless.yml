@@ -40,7 +40,6 @@ provider:
     OPENAI_TIMEOUT_SECONDS: 25
     SLACK_APP_LOG_LEVEL: WARN
     TRANSLATE_MARKDOWN: true
-    REDACTION_ENABLED: false
 
 functions:
   app:
