@@ -55,6 +55,8 @@ export USE_SLACK_LANGUAGE=true
 export SLACK_APP_LOG_LEVEL=INFO
 # Optional: When the string is "true", translate between OpenAI markdown and Slack mrkdwn format (default: false)
 export TRANSLATE_MARKDOWN=true
+# Optional: When the string is "true", perform some basic redaction on propmts sent to OpenAI (default: false)
+export REDACTION_ENABLED=true
 
 python -m venv .venv
 source .venv/bin/activate
