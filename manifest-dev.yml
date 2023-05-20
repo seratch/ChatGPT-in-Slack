@@ -1,14 +1,18 @@
 display_information:
-  name: ChatGPT (dev)
+  name: ChatGPT (dev testing)
+  description: development testing of ChatGPT bot
+  background_color: "#195208"
 features:
   app_home:
-    home_tab_enabled: false
+    home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: ChatGPT Bot (dev)
+    display_name: ChatGPT (dev testing)
     always_online: true
 oauth_config:
+  redirect_urls:
+    - https://dev-slack-chatgpt-bot.typewise.app/slack/oauth_redirect
   scopes:
     bot:
       - app_mentions:read
@@ -21,12 +25,19 @@ oauth_config:
       - users:read
 settings:
   event_subscriptions:
+    request_url: https://dev-slack-chatgpt-bot.typewise.app/slack/events
     bot_events:
+      - app_home_opened
       - app_mention
+      - app_uninstalled
       - message.channels
       - message.groups
       - message.im
       - message.mpim
+      - tokens_revoked
   interactivity:
     is_enabled: true
-  socket_mode_enabled: true
+    request_url: https://dev-slack-chatgpt-bot.typewise.app/slack/events
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

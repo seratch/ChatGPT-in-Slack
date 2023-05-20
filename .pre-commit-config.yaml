@@ -1,0 +1,71 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: local
+    hooks:
+      - id: autoflake
+        name: autoflake
+        entry: autoflake
+        files: ^tw_db_lib/
+        args:
+          [
+            "--in-place",
+            "--remove-unused-variables",
+            "--remove-all-unused-imports",
+            "--ignore-init-module-imports",
+            "-r",
+            "tw_db_lib/",
+          ]
+        language: system
+        types: [python]
+        pass_filenames: false
+
+  - repo: https://github.com/psf/black
+    rev: 22.3.0
+    hooks:
+      - id: black
+        files: ^tw_db_lib/
+        args: [--safe]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v1.1.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        files: ^tw_db_lib/
+        args: [--allow-multiple-documents]
+      - id: debug-statements
+        language_version: python3
+
+  # - repo: https://github.com/PyCQA/flake8
+  #   rev: 3.9.2
+  #   hooks:
+  #     - id: flake8
+  #       files: ^tw_db_lib/
+  #       args: ["--extend-ignore=E203,E711,E712", --max-line-length, "120"]
+  #       language_version: python3
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        files: ^tw_db_lib/
+        name: isort (python)
+        args: [--line-length=88, --profile, black]
+
+  - repo: https://github.com/asottile/pyupgrade
+    rev: v2.29.0
+    hooks:
+      - id: pyupgrade
+        files: ^tw_db_lib/
+        args: [--py36-plus]
+
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: v0.910
+  #   hooks:
+  #     - id: mypy
+  #       files: ^tw_db_lib/
+  #       additional_dependencies:
+  #         - "pydantic"
+  #         - "numpy"

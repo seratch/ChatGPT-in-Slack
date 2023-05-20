@@ -49,7 +49,20 @@ from slack_bolt.adapter.aws_lambda.lambda_s3_oauth_flow import LambdaS3OAuthFlow
 SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=SLACK_APP_LOG_LEVEL)
 
+ssm_client = boto3.client("ssm")
 s3_client = boto3.client("s3")
+stage = os.environ["SERVERLESS_STAGE"].upper() # DEV or PROD
+
+def get_ssm_param(key_name: str):
+    return ssm_client.get_parameter(
+        Name=f"/{stage}/SECRETS/SLACK_CHATGPT_BOT/{key_name}",
+        WithDecryption=True
+    )["Parameter"]["Value"]
+
+os.environ["SLACK_CLIENT_ID"] = get_ssm_param("SLACK_CLIENT_ID")
+os.environ["SLACK_CLIENT_SECRET"] = get_ssm_param("SLACK_CLIENT_SECRET")
+os.environ["SLACK_SIGNING_SECRET"] = get_ssm_param("SLACK_SIGNING_SECRET")
+os.environ["SLACK_SCOPES"] = get_ssm_param("SLACK_SCOPES")
 openai_bucket_name = os.environ["OPENAI_S3_BUCKET_NAME"]
 
 client_template = WebClient()

@@ -3,10 +3,15 @@ service: slack-chat-gpt-bot
 provider:
   name: aws
   runtime: python3.9
-  region: us-east-1
+  region: ${env:REGION}
   iam:
     role:
       statements:
+        - Effect: Allow
+          Action: "ssm:*"
+          Resource:
+            - "arn:aws:ssm:${env:REGION}:*:parameter/PROD/SECRETS/SLACK_CHATGPT_BOT/*"
+            - "arn:aws:ssm:${env:REGION}:*:parameter/DEV/SECRETS/SLACK_CHATGPT_BOT/*"
         - Effect: Allow
           Action:
             - lambda:InvokeFunction
@@ -29,20 +34,17 @@ provider:
             - arn:aws:s3:::${env:OPENAI_S3_BUCKET_NAME}
             - arn:aws:s3:::${env:OPENAI_S3_BUCKET_NAME}/*
   environment:
-    SERVERLESS_STAGE: ${opt:stage, 'prod'}
-    SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
-    SLACK_CLIENT_ID: ${env:SLACK_CLIENT_ID}
-    SLACK_CLIENT_SECRET: ${env:SLACK_CLIENT_SECRET}
-    SLACK_SCOPES: ${env:SLACK_SCOPES}
+    SERVERLESS_STAGE: ${opt:stage, 'dev'}
     SLACK_INSTALLATION_S3_BUCKET_NAME: ${env:SLACK_INSTALLATION_S3_BUCKET_NAME}
     SLACK_STATE_S3_BUCKET_NAME: ${env:SLACK_STATE_S3_BUCKET_NAME}
     OPENAI_S3_BUCKET_NAME: ${env:OPENAI_S3_BUCKET_NAME}
     OPENAI_TIMEOUT_SECONDS: 25
-    SLACK_APP_LOG_LEVEL: WARN
+    SLACK_APP_LOG_LEVEL: ${env:SLACK_APP_LOG_LEVEL}
     TRANSLATE_MARKDOWN: true
 
 functions:
   app:
+    name: ${opt:stage, 'dev'}-slack-chatGPT-bot-lambda
     handler: main_prod.handler
     timeout: 29
     events:
