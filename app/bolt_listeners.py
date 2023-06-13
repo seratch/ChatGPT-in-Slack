@@ -146,6 +146,10 @@ def respond_to_app_mention(
                 model=context["OPENAI_MODEL"],
                 messages=messages,
                 user=context.user_id,
+                openai_api_type=context["OPENAI_API_TYPE"],
+                openai_api_base=context["OPENAI_API_BASE"],
+                openai_api_version=context["OPENAI_API_VERSION"],
+                openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
             )
             consume_openai_stream_to_write_reply(
                 client=client,
@@ -358,6 +362,10 @@ def respond_to_new_message(
                 model=context["OPENAI_MODEL"],
                 messages=messages,
                 user=user_id,
+                openai_api_type=context["OPENAI_API_TYPE"],
+                openai_api_base=context["OPENAI_API_BASE"],
+                openai_api_version=context["OPENAI_API_VERSION"],
+                openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
             )
 
             latest_replies = client.conversations_replies(

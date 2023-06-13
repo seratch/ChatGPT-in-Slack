@@ -10,6 +10,10 @@ from app.env import (
     USE_SLACK_LANGUAGE,
     SLACK_APP_LOG_LEVEL,
     OPENAI_MODEL,
+    OPENAI_API_TYPE,
+    OPENAI_API_BASE,
+    OPENAI_API_VERSION,
+    OPENAI_DEPLOYMENT_ID,
 )
 from app.slack_ops import (
     build_home_tab,
@@ -68,6 +72,10 @@ if __name__ == "__main__":
     def set_openai_api_key(context: BoltContext, next_):
         context["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
         context["OPENAI_MODEL"] = OPENAI_MODEL
+        context["OPENAI_API_TYPE"] = OPENAI_API_TYPE
+        context["OPENAI_API_BASE"] = OPENAI_API_BASE
+        context["OPENAI_API_VERSION"] = OPENAI_API_VERSION
+        context["OPENAI_DEPLOYMENT_ID"] = OPENAI_DEPLOYMENT_ID
         next_()
 
     handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])

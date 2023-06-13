@@ -69,6 +69,10 @@ def translate(*, openai_api_key: str, context: BoltContext, text: str) -> str:
         frequency_penalty=0,
         logit_bias={},
         user="system",
+        api_base=context.get("OPENAI_API_BASE"),
+        api_type=context.get("OPENAI_API_TYPE"),
+        api_version=context.get("OPENAI_API_VERSION"),
+        deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
     )
     translated_text = response["choices"][0]["message"].get("content")
     _translation_result_cache[f"{lang}:{text}"] = translated_text

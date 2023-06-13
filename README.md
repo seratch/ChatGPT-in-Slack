@@ -58,6 +58,16 @@ export TRANSLATE_MARKDOWN=true
 # Optional: When the string is "true", perform some basic redaction on propmts sent to OpenAI (default: false)
 export REDACTION_ENABLED=true
 
+# To use Azure OpenAI, set the following optional environment variables according to your environment
+# default: open_ai
+export OPENAI_API_TYPE=azure
+# default: https://api.openai.com/v1
+export OPENAI_API_BASE=https://YOUR_RESOURCE_NAME.openai.azure.com
+# default: None
+export OPENAI_API_VERSION=2023-05-15
+# default: None
+export OPENAI_DEPLOYMENT_ID=YOUR-DEPLOYMENT-ID
+
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

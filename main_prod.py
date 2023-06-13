@@ -19,7 +19,15 @@ from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
 from slack_bolt import App, Ack, BoltContext
 
 from app.bolt_listeners import register_listeners, before_authorize
-from app.env import USE_SLACK_LANGUAGE, SLACK_APP_LOG_LEVEL, DEFAULT_OPENAI_MODEL
+from app.env import (
+    USE_SLACK_LANGUAGE,
+    SLACK_APP_LOG_LEVEL,
+    DEFAULT_OPENAI_MODEL,
+    DEFAULT_OPENAI_API_TYPE,
+    DEFAULT_OPENAI_API_BASE,
+    DEFAULT_OPENAI_API_VERSION,
+    DEFAULT_OPENAI_DEPLOYMENT_ID,
+)
 from app.slack_ops import (
     build_home_tab,
     DEFAULT_HOME_TAB_MESSAGE,
@@ -148,6 +156,10 @@ def handler(event, context_):
                 # The legacy data format
                 context["OPENAI_API_KEY"] = config_str
                 context["OPENAI_MODEL"] = DEFAULT_OPENAI_MODEL
+            context["OPENAI_API_TYPE"] = DEFAULT_OPENAI_API_TYPE
+            context["OPENAI_API_BASE"] = DEFAULT_OPENAI_API_BASE
+            context["OPENAI_API_VERSION"] = DEFAULT_OPENAI_API_VERSION
+            context["OPENAI_DEPLOYMENT_ID"] = DEFAULT_OPENAI_DEPLOYMENT_ID
         except:  # noqa: E722
             context["OPENAI_API_KEY"] = None
         next_()
