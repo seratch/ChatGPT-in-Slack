@@ -72,6 +72,10 @@ def start_receiving_openai_response(
     model: str,
     messages: List[Dict[str, str]],
     user: str,
+    openai_api_type: str,
+    openai_api_base: str,
+    openai_api_version: str,
+    openai_deployment_id: str,
 ) -> Generator[OpenAIObject, Any, None]:
     return openai.ChatCompletion.create(
         api_key=openai_api_key,
@@ -86,6 +90,10 @@ def start_receiving_openai_response(
         logit_bias={},
         user=user,
         stream=True,
+        api_type=openai_api_type,
+        api_base=openai_api_base,
+        api_version=openai_api_version,
+        deployment_id=openai_deployment_id,
     )
 
 
