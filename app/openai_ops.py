@@ -21,10 +21,15 @@ from app.slack_ops import update_wip_message
 MAX_TOKENS = 1024
 GPT_3_5_TURBO_MODEL = "gpt-3.5-turbo"
 GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
+GPT_3_5_TURBO_0613_MODEL = "gpt-3.5-turbo-0613"
+GPT_3_5_TURBO_16K_MODEL = "gpt-3.5-turbo-16k"
+GPT_3_5_TURBO_16K_0613_MODEL = "gpt-3.5-turbo-16k-0613"
 GPT_4_MODEL = "gpt-4"
 GPT_4_0314_MODEL = "gpt-4-0314"
+GPT_4_0613_MODEL = "gpt-4-0613"
 GPT_4_32K_MODEL = "gpt-4-32k"
 GPT_4_32K_0314_MODEL = "gpt-4-32k-0314"
+GPT_4_32K_0613_MODEL = "gpt-4-32k-0613"
 
 
 # Format message from Slack to send to OpenAI
@@ -185,19 +190,24 @@ def context_length(
     model: str,
 ) -> int:
     if model == GPT_3_5_TURBO_MODEL:
-        # Note that GPT_3_5_TURBO_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_0301_MODEL.
-        return context_length(model=GPT_3_5_TURBO_0301_MODEL)
+        # Note that GPT_3_5_TURBO_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_0613_MODEL.
+        return context_length(model=GPT_3_5_TURBO_0613_MODEL)
+    if model == GPT_3_5_TURBO_16K_MODEL:
+        # Note that GPT_3_5_TURBO_16K_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_16K_0613_MODEL.
+        return context_length(model=GPT_3_5_TURBO_16K_0613_MODEL)
     elif model == GPT_4_MODEL:
-        # Note that GPT_4_MODEL may change over time. Return context length assuming GPT_4_0314_MODEL.
-        return context_length(model=GPT_4_0314_MODEL)
+        # Note that GPT_4_MODEL may change over time. Return context length assuming GPT_4_0613_MODEL.
+        return context_length(model=GPT_4_0613_MODEL)
     elif model == GPT_4_32K_MODEL:
-        # Note that GPT_4_32K_MODEL may change over time. Return context length assuming GPT_4_32K_0314_MODEL.
-        return context_length(model=GPT_4_32K_0314_MODEL)
-    elif model == GPT_3_5_TURBO_0301_MODEL:
+        # Note that GPT_4_32K_MODEL may change over time. Return context length assuming GPT_4_32K_0613_MODEL.
+        return context_length(model=GPT_4_32K_0613_MODEL)
+    elif model == GPT_3_5_TURBO_0301_MODEL or model == GPT_3_5_TURBO_0613_MODEL:
         return 4096
-    elif model == GPT_4_0314_MODEL:
+    elif model == GPT_3_5_TURBO_16K_0613_MODEL:
+        return 16384
+    elif model == GPT_4_0314_MODEL or model == GPT_4_0613_MODEL:
         return 8192
-    elif model == GPT_4_32K_0314_MODEL:
+    elif model == GPT_4_32K_0314_MODEL or model == GPT_4_32K_0613_MODEL:
         return 32768
     else:
         error = f"Calculating the length of the context window for model {model} is not yet supported."
@@ -214,20 +224,32 @@ def calculate_num_tokens(
     except KeyError:
         encoding = tiktoken.get_encoding("cl100k_base")
     if model == GPT_3_5_TURBO_MODEL:
-        # Note that GPT_3_5_TURBO_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_0301_MODEL.
-        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_0301_MODEL)
+        # Note that GPT_3_5_TURBO_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_0613_MODEL.
+        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_0613_MODEL)
+    if model == GPT_3_5_TURBO_16K_MODEL:
+        # Note that GPT_3_5_TURBO_16K_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_16K_0613_MODEL.
+        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_16K_0613_MODEL)
     elif model == GPT_4_MODEL:
-        # Note that GPT_4_MODEL may change over time. Return num tokens assuming GPT_4_0314_MODEL.
-        return calculate_num_tokens(messages, model=GPT_4_0314_MODEL)
+        # Note that GPT_4_MODEL may change over time. Return num tokens assuming GPT_4_0613_MODEL.
+        return calculate_num_tokens(messages, model=GPT_4_0613_MODEL)
     elif model == GPT_4_32K_MODEL:
-        # Note that GPT_4_32K_MODEL may change over time. Return num tokens assuming GPT_4_32K_0314_MODEL.
-        return calculate_num_tokens(messages, model=GPT_4_32K_0314_MODEL)
-    elif model == GPT_3_5_TURBO_0301_MODEL:
+        # Note that GPT_4_32K_MODEL may change over time. Return num tokens assuming GPT_4_32K_0613_MODEL.
+        return calculate_num_tokens(messages, model=GPT_4_32K_0613_MODEL)
+    elif (
+        model == GPT_3_5_TURBO_0301_MODEL
+        or model == GPT_3_5_TURBO_0613_MODEL
+        or model == GPT_3_5_TURBO_16K_0613_MODEL
+    ):
         tokens_per_message = (
             4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
         )
         tokens_per_name = -1  # if there's a name, the role is omitted
-    elif model == GPT_4_0314_MODEL or model == GPT_4_32K_0314_MODEL:
+    elif (
+        model == GPT_4_0314_MODEL
+        or model == GPT_4_0613_MODEL
+        or model == GPT_4_32K_0314_MODEL
+        or model == GPT_4_32K_0613_MODEL
+    ):
         tokens_per_message = 3
         tokens_per_name = 1
     else:
