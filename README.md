@@ -59,7 +59,7 @@ export TRANSLATE_MARKDOWN=true
 export REDACTION_ENABLED=true
 
 # To use Azure OpenAI, set the following optional environment variables according to your environment
-# default: open_ai
+# default: None
 export OPENAI_API_TYPE=azure
 # default: https://api.openai.com/v1
 export OPENAI_API_BASE=https://YOUR_RESOURCE_NAME.openai.azure.com
