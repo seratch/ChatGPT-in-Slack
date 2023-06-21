@@ -81,7 +81,7 @@ python main.py
 Confidentiality of information is top priority for businesses.
 
 This app is open-sourced! so please feel free to fork it and deploy the app onto the infrastructure that you manage.
-After going through the above local development process, you can deploy the app using `Dockerfile`, which is placed at the root directory of this project.
+After going through the above local development process, you can deploy the app using `Dockerfile`, which is placed at the root directory.
 
 The `Dockerfile` is designed to establish a WebSocket connection with Slack via Socket Mode.
 This means that there's no need to provide a public URL for communication with Slack.
@@ -91,7 +91,7 @@ This means that there's no need to provide a public URL for communication with S
 You're always welcome to contribute! :raised_hands:
 When you make changes to the code in this project, please keep these points in mind:
 - When making changes to the app, please avoid anything that could cause breaking behavior. If such changes are absolutely necessary due to critical reasons, like security issues, please start a discussion in GitHub Issues before making significant alterations.
-- When you have the chance, please write some unit tests. Especially when you touch `internals.py` and add/edit the code that do not call any web APIs, writing tests should be relatively easy.
+- When you have the chance, please write some unit tests. Especially when you touch internal utility modules (e.g., `app/markdown.py` etc.) and add/edit the code that do not call any web APIs, writing tests should be relatively easy.
 - Before committing your changes, be sure to run `./validate.sh`. The script runs black (code formatter), flake8 and pytype (static code analyzers).
 
 ## The License
