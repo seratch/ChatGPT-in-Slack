@@ -114,15 +114,15 @@ def consume_openai_stream_to_write_reply(
     timeout_seconds: int,
     translate_markdown: bool,
 ):
-    start_time = time.time()
     assistant_reply: Dict[str, str] = {"role": "assistant", "content": ""}
     messages.append(assistant_reply)
     word_count = 0
     threads = []
     try:
         loading_character = " ... :writing_hand:"
-        for chunk in stream:
-            spent_seconds = time.time() - start_time
+        last_chunk_at = time.time()
+        for chunk in steam:
+            spent_seconds = time.time() - last_chunk_at
             if timeout_seconds < spent_seconds:
                 raise Timeout()
             item = chunk.choices[0]
@@ -130,6 +130,7 @@ def consume_openai_stream_to_write_reply(
                 break
             delta = item.get("delta")
             if delta.get("content") is not None:
+                last_chunk_at = time.time()
                 word_count += 1
                 assistant_reply["content"] += delta.get("content")
                 if word_count >= 20:
