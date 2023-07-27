@@ -36,6 +36,11 @@ def test_format_assistant_reply():
             "\n\n```latex\n\\documentclass{article}\n```",
             "```\n\\documentclass{article}\n```",
         ),
+        ("\n\n```lua\nx = 1\n```", "```\nx = 1\n```"),
+        (
+            "\n\n```cmake\ncmake_minimum_required(VERSION 3.24)\n```",
+            "```\ncmake_minimum_required(VERSION 3.24)\n```",
+        ),
         ("\n\n```bash\n#!/bin/bash\n```", "```\n#!/bin/bash\n```"),
         ("\n\n```zsh\n#!/bin/zsh\n```", "```\n#!/bin/zsh\n```"),
         ("\n\n```sh\n#!/bin/sh\n```", "```\n#!/bin/sh\n```"),
