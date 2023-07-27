@@ -296,6 +296,8 @@ def format_assistant_reply(content: str, translate_markdown: bool) -> str:
         ("```\\s*[Mm][Aa][Tt][Ll][Aa][Bb]\n", "```\n"),
         ("```\\s*[Jj][Ss][Oo][Nn]\n", "```\n"),
         ("```\\s*[Ll]a[Tt]e[Xx]\n", "```\n"),
+        ("```\\s*[Ll][Uu][Aa]\n", "```\n"),
+        ("```\\s*[Cc][Mm][Aa][Kk][Ee]\n", "```\n"),
         ("```\\s*bash\n", "```\n"),
         ("```\\s*zsh\n", "```\n"),
         ("```\\s*sh\n", "```\n"),
