@@ -129,7 +129,7 @@ def respond_to_app_mention(
             messages,
             num_context_tokens,
             max_context_tokens,
-        ) = messages_within_context_window(messages, model=context["OPENAI_MODEL"])
+        ) = messages_within_context_window(messages, context=context)
         num_messages = len([msg for msg in messages if msg.get("role") != "system"])
         if num_messages == 0:
             update_wip_message(
@@ -151,6 +151,7 @@ def respond_to_app_mention(
                 openai_api_base=context["OPENAI_API_BASE"],
                 openai_api_version=context["OPENAI_API_VERSION"],
                 openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+                function_call_module_name=context["OPENAI_FUNCTION_CALL_MODULE_NAME"],
             )
             consume_openai_stream_to_write_reply(
                 client=client,
@@ -346,7 +347,7 @@ def respond_to_new_message(
             messages,
             num_context_tokens,
             max_context_tokens,
-        ) = messages_within_context_window(messages, model=context["OPENAI_MODEL"])
+        ) = messages_within_context_window(messages, context=context)
         num_messages = len([msg for msg in messages if msg.get("role") != "system"])
         if num_messages == 0:
             update_wip_message(
@@ -368,6 +369,7 @@ def respond_to_new_message(
                 openai_api_base=context["OPENAI_API_BASE"],
                 openai_api_version=context["OPENAI_API_VERSION"],
                 openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+                function_call_module_name=context["OPENAI_FUNCTION_CALL_MODULE_NAME"],
             )
 
             latest_replies = client.conversations_replies(

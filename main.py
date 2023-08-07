@@ -15,6 +15,7 @@ from app.env import (
     OPENAI_API_BASE,
     OPENAI_API_VERSION,
     OPENAI_DEPLOYMENT_ID,
+    OPENAI_FUNCTION_CALL_MODULE_NAME,
 )
 from app.slack_ops import (
     build_home_tab,
@@ -78,6 +79,7 @@ if __name__ == "__main__":
         context["OPENAI_API_BASE"] = OPENAI_API_BASE
         context["OPENAI_API_VERSION"] = OPENAI_API_VERSION
         context["OPENAI_DEPLOYMENT_ID"] = OPENAI_DEPLOYMENT_ID
+        context["OPENAI_FUNCTION_CALL_MODULE_NAME"] = OPENAI_FUNCTION_CALL_MODULE_NAME
         next_()
 
     handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
