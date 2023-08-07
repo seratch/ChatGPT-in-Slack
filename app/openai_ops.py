@@ -1,7 +1,9 @@
 import threading
 import time
 import re
-from typing import List, Dict, Any, Generator, Tuple
+import json
+from typing import List, Dict, Any, Generator, Tuple, Optional, Union
+from importlib import import_module
 
 import openai
 from openai.error import Timeout
@@ -31,6 +33,8 @@ GPT_4_32K_MODEL = "gpt-4-32k"
 GPT_4_32K_0314_MODEL = "gpt-4-32k-0314"
 GPT_4_32K_0613_MODEL = "gpt-4-32k-0613"
 
+_prompt_tokens_used_by_function_call_cache = None
+
 
 # Format message from Slack to send to OpenAI
 def format_openai_message_content(content: str, translate_markdown: bool) -> str:
@@ -49,18 +53,20 @@ def format_openai_message_content(content: str, translate_markdown: bool) -> str
 
 
 def messages_within_context_window(
-    messages: List[Dict[str, str]],
-    model: str,
-) -> Tuple[List[Dict[str, str]], int, int]:
+    messages: List[Dict[str, Union[str, Dict[str, str]]]],
+    context: BoltContext,
+) -> Tuple[List[Dict[str, Union[str, Dict[str, str]]]], int, int]:
     # Remove old messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (e.g., 4096 tokens for gpt-3.5-turbo-0301)
-    max_context_tokens = context_length(model) - MAX_TOKENS - 1
+    max_context_tokens = context_length(context.get("OPENAI_MODEL")) - MAX_TOKENS - 1
+    if context.get("OPENAI_FUNCTION_CALL_MODULE_NAME") is not None:
+        max_context_tokens -= calculate_prompt_tokens_used_by_function_call(context)
     num_context_tokens = 0  # Number of tokens in the context window just before the earliest message is deleted
     while (num_tokens := calculate_num_tokens(messages)) > max_context_tokens:
         removed = False
         for i, message in enumerate(messages):
-            if message["role"] in ("user", "assistant"):
+            if message["role"] in ("user", "assistant", "function"):
                 num_context_tokens = num_tokens
                 del messages[i]
                 removed = True
@@ -76,13 +82,17 @@ def start_receiving_openai_response(
     openai_api_key: str,
     model: str,
     temperature: float,
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Union[str, Dict[str, str]]]],
     user: str,
     openai_api_type: str,
     openai_api_base: str,
     openai_api_version: str,
     openai_deployment_id: str,
+    function_call_module_name: Optional[str],
 ) -> Generator[OpenAIObject, Any, None]:
+    kwargs = {}
+    if function_call_module_name is not None:
+        kwargs["functions"] = import_module(function_call_module_name).functions
     return openai.ChatCompletion.create(
         api_key=openai_api_key,
         model=model,
@@ -100,6 +110,7 @@ def start_receiving_openai_response(
         api_base=openai_api_base,
         api_version=openai_api_version,
         deployment_id=openai_deployment_id,
+        **kwargs,
     )
 
 
@@ -109,16 +120,20 @@ def consume_openai_stream_to_write_reply(
     wip_reply: dict,
     context: BoltContext,
     user_id: str,
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Union[str, Dict[str, str]]]],
     stream: Generator[OpenAIObject, Any, None],
     timeout_seconds: int,
     translate_markdown: bool,
 ):
     start_time = time.time()
-    assistant_reply: Dict[str, str] = {"role": "assistant", "content": ""}
+    assistant_reply: Dict[str, Union[str, Dict[str, str]]] = {
+        "role": "assistant",
+        "content": "",
+    }
     messages.append(assistant_reply)
     word_count = 0
     threads = []
+    function_call: Dict[str, str] = {"name": "", "arguments": ""}
     try:
         loading_character = " ... :writing_hand:"
         for chunk in stream:
@@ -156,6 +171,12 @@ def consume_openai_stream_to_write_reply(
                     thread.start()
                     threads.append(thread)
                     word_count = 0
+            elif delta.get("function_call") is not None:
+                # Ignore function call suggestions after content has been received
+                if assistant_reply["content"] == "":
+                    for k in function_call.keys():
+                        function_call[k] += delta["function_call"].get(k, "")
+                    assistant_reply["function_call"] = function_call
 
         for t in threads:
             try:
@@ -163,6 +184,43 @@ def consume_openai_stream_to_write_reply(
                     t.join()
             except Exception:
                 pass
+
+        if function_call["name"] != "":
+            function_call_module_name = context.get("OPENAI_FUNCTION_CALL_MODULE_NAME")
+            function_call_module = import_module(function_call_module_name)
+            function_to_call = getattr(function_call_module, function_call["name"])
+            function_args = json.loads(function_call["arguments"])
+            function_response = function_to_call(**function_args)
+            function_message = {
+                "role": "function",
+                "name": function_call["name"],
+                "content": function_response,
+            }
+            messages.append(function_message)
+            messages_within_context_window(messages, context=context)
+            sub_stream = start_receiving_openai_response(
+                openai_api_key=context.get("OPENAI_API_KEY"),
+                model=context.get("OPENAI_MODEL"),
+                temperature=context.get("OPENAI_TEMPERATURE"),
+                messages=messages,
+                user=user_id,
+                openai_api_type=context.get("OPENAI_API_TYPE"),
+                openai_api_base=context.get("OPENAI_API_BASE"),
+                openai_api_version=context.get("OPENAI_API_VERSION"),
+                openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
+                function_call_module_name=function_call_module_name,
+            )
+            consume_openai_stream_to_write_reply(
+                client=client,
+                wip_reply=wip_reply,
+                context=context,
+                user_id=user_id,
+                messages=messages,
+                stream=sub_stream,
+                timeout_seconds=int(timeout_seconds - (time.time() - start_time)),
+                translate_markdown=translate_markdown,
+            )
+            return
 
         assistant_reply_text = format_assistant_reply(
             assistant_reply["content"], translate_markdown
@@ -219,7 +277,7 @@ def context_length(
 
 # Adapted from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def calculate_num_tokens(
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Union[str, Dict[str, str]]]],
     model: str = GPT_3_5_TURBO_0613_MODEL,
 ) -> int:
     """Returns the number of tokens used by a list of messages."""
@@ -265,7 +323,12 @@ def calculate_num_tokens(
     for message in messages:
         num_tokens += tokens_per_message
         for key, value in message.items():
-            num_tokens += len(encoding.encode(value))
+            if key == "function_call":
+                num_tokens += 1
+                num_tokens += len(encoding.encode(value["name"]))
+                num_tokens += len(encoding.encode(value["arguments"]))
+            else:
+                num_tokens += len(encoding.encode(value))
             if key == "name":
                 num_tokens += tokens_per_name
     num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
@@ -324,3 +387,30 @@ def build_system_text(
     if translate_markdown is True:
         system_text = slack_to_markdown(system_text)
     return system_text
+
+
+def calculate_prompt_tokens_used_by_function_call(context: BoltContext) -> int:
+    """Calculates and returns the estimated number of tokens for the function call consumed at the prompt."""
+    global _prompt_tokens_used_by_function_call_cache
+    if _prompt_tokens_used_by_function_call_cache is None:
+        # As the method to calculate the number of tokens is not clear yet, actual measurement is currently used
+        module = import_module(context.get("OPENAI_FUNCTION_CALL_MODULE_NAME"))
+
+        def create_chat_completion(functions=None):
+            return openai.ChatCompletion.create(
+                api_key=context.get("OPENAI_API_KEY"),
+                model=context.get("OPENAI_MODEL"),
+                messages=[{"role": "user", "content": "hello"}],
+                max_tokens=1024,
+                user="system",
+                api_type=context.get("OPENAI_API_TYPE"),
+                api_base=context.get("OPENAI_API_BASE"),
+                api_version=context.get("OPENAI_API_VERSION"),
+                deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
+                **({"functions": functions} if functions is not None else {}),
+            )["usage"]["prompt_tokens"]
+
+        _prompt_tokens_used_by_function_call_cache = (
+            create_chat_completion(module.functions) - create_chat_completion()
+        )
+    return _prompt_tokens_used_by_function_call_cache
