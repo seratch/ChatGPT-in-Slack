@@ -22,12 +22,13 @@ from app.bolt_listeners import register_listeners, before_authorize
 from app.env import (
     USE_SLACK_LANGUAGE,
     SLACK_APP_LOG_LEVEL,
-    DEFAULT_OPENAI_MODEL,
-    DEFAULT_OPENAI_TEMPERATURE,
-    DEFAULT_OPENAI_API_TYPE,
-    DEFAULT_OPENAI_API_BASE,
-    DEFAULT_OPENAI_API_VERSION,
-    DEFAULT_OPENAI_DEPLOYMENT_ID,
+    OPENAI_MODEL,
+    OPENAI_TEMPERATURE,
+    OPENAI_API_TYPE,
+    OPENAI_API_BASE,
+    OPENAI_API_VERSION,
+    OPENAI_DEPLOYMENT_ID,
+    OPENAI_FUNCTION_CALL_MODULE_NAME,
 )
 from app.slack_ops import (
     build_home_tab,
@@ -154,19 +155,23 @@ def handler(event, context_):
                 context["OPENAI_API_KEY"] = config.get("api_key")
                 context["OPENAI_MODEL"] = config.get("model")
                 context["OPENAI_TEMPERATURE"] = config.get(
-                    "temperature", DEFAULT_OPENAI_TEMPERATURE
+                    "temperature", OPENAI_TEMPERATURE
                 )
             else:
                 # The legacy data format
                 context["OPENAI_API_KEY"] = config_str
-                context["OPENAI_MODEL"] = DEFAULT_OPENAI_MODEL
-                context["OPENAI_TEMPERATURE"] = DEFAULT_OPENAI_TEMPERATURE
-            context["OPENAI_API_TYPE"] = DEFAULT_OPENAI_API_TYPE
-            context["OPENAI_API_BASE"] = DEFAULT_OPENAI_API_BASE
-            context["OPENAI_API_VERSION"] = DEFAULT_OPENAI_API_VERSION
-            context["OPENAI_DEPLOYMENT_ID"] = DEFAULT_OPENAI_DEPLOYMENT_ID
+                context["OPENAI_MODEL"] = OPENAI_MODEL
+                context["OPENAI_TEMPERATURE"] = OPENAI_TEMPERATURE
         except:  # noqa: E722
             context["OPENAI_API_KEY"] = None
+            context["OPENAI_MODEL"] = None
+            context["OPENAI_TEMPERATURE"] = None
+
+        context["OPENAI_API_TYPE"] = OPENAI_API_TYPE
+        context["OPENAI_API_BASE"] = OPENAI_API_BASE
+        context["OPENAI_API_VERSION"] = OPENAI_API_VERSION
+        context["OPENAI_DEPLOYMENT_ID"] = OPENAI_DEPLOYMENT_ID
+        context["OPENAI_FUNCTION_CALL_MODULE_NAME"] = OPENAI_FUNCTION_CALL_MODULE_NAME
         next_()
 
     @app.event("app_home_opened")
