@@ -33,7 +33,7 @@ GPT_4_32K_MODEL = "gpt-4-32k"
 GPT_4_32K_0314_MODEL = "gpt-4-32k-0314"
 GPT_4_32K_0613_MODEL = "gpt-4-32k-0613"
 
-_prompt_tokens_used_by_function_call_cache = None
+_prompt_tokens_used_by_function_call_cache: Optional[int] = None
 
 
 # Format message from Slack to send to OpenAI
@@ -61,7 +61,7 @@ def messages_within_context_window(
     # > total tokens must be below the model’s maximum limit (e.g., 4096 tokens for gpt-3.5-turbo-0301)
     max_context_tokens = context_length(context.get("OPENAI_MODEL")) - MAX_TOKENS - 1
     if context.get("OPENAI_FUNCTION_CALL_MODULE_NAME") is not None:
-        max_context_tokens -= calculate_prompt_tokens_used_by_function_call(context)
+        max_context_tokens -= calculate_tokens_necessary_for_function_call(context)
     num_context_tokens = 0  # Number of tokens in the context window just before the earliest message is deleted
     while (num_tokens := calculate_num_tokens(messages)) > max_context_tokens:
         removed = False
@@ -389,28 +389,33 @@ def build_system_text(
     return system_text
 
 
-def calculate_prompt_tokens_used_by_function_call(context: BoltContext) -> int:
-    """Calculates and returns the estimated number of tokens for the function call consumed at the prompt."""
+def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
+    """Calculates the estimated number of prompt tokens necessary for loading Function Call stuff"""
+    function_call_module_name = context.get("OPENAI_FUNCTION_CALL_MODULE_NAME")
+    if function_call_module_name is None:
+        return 0
+
     global _prompt_tokens_used_by_function_call_cache
-    if _prompt_tokens_used_by_function_call_cache is None:
-        # As the method to calculate the number of tokens is not clear yet, actual measurement is currently used
-        module = import_module(context.get("OPENAI_FUNCTION_CALL_MODULE_NAME"))
+    if _prompt_tokens_used_by_function_call_cache is not None:
+        return _prompt_tokens_used_by_function_call_cache
 
-        def create_chat_completion(functions=None):
-            return openai.ChatCompletion.create(
-                api_key=context.get("OPENAI_API_KEY"),
-                model=context.get("OPENAI_MODEL"),
-                messages=[{"role": "user", "content": "hello"}],
-                max_tokens=1024,
-                user="system",
-                api_type=context.get("OPENAI_API_TYPE"),
-                api_base=context.get("OPENAI_API_BASE"),
-                api_version=context.get("OPENAI_API_VERSION"),
-                deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
-                **({"functions": functions} if functions is not None else {}),
-            )["usage"]["prompt_tokens"]
+    def _calculate_prompt_tokens(functions) -> int:
+        return openai.ChatCompletion.create(
+            api_key=context.get("OPENAI_API_KEY"),
+            model=context.get("OPENAI_MODEL"),
+            messages=[{"role": "user", "content": "hello"}],
+            max_tokens=1024,
+            user="system",
+            api_type=context.get("OPENAI_API_TYPE"),
+            api_base=context.get("OPENAI_API_BASE"),
+            api_version=context.get("OPENAI_API_VERSION"),
+            deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
+            **({"functions": functions} if functions is not None else {}),
+        )["usage"]["prompt_tokens"]
 
-        _prompt_tokens_used_by_function_call_cache = (
-            create_chat_completion(module.functions) - create_chat_completion()
-        )
+    # TODO: If there is a better way to calculate this, replace the logic with it
+    module = import_module(function_call_module_name)
+    _prompt_tokens_used_by_function_call_cache = _calculate_prompt_tokens(
+        module.functions
+    ) - _calculate_prompt_tokens(None)
     return _prompt_tokens_used_by_function_call_cache

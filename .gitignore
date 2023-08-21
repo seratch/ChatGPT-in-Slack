@@ -15,3 +15,4 @@ node_modules/
 .requirements.zip
 package.json
 package-lock.json
+.python-version

@@ -71,7 +71,7 @@ export OPENAI_API_VERSION=2023-05-15
 export OPENAI_DEPLOYMENT_ID=YOUR-DEPLOYMENT-ID
 
 # Experimental: You can try out the Function Calling feature (default: None)
-export OPENAI_FUNCTION_CALL_MODULE_NAME=examples.function_call
+export OPENAI_FUNCTION_CALL_MODULE_NAME=tests.function_call_example
 
 python -m venv .venv
 source .venv/bin/activate
