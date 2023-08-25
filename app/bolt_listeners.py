@@ -21,7 +21,7 @@ from app.openai_ops import (
     consume_openai_stream_to_write_reply,
     build_system_text,
     messages_within_context_window,
-    get_slack_thread_summary,
+    generate_slack_thread_summary,
 )
 from app.slack_ops import (
     find_parent_message,
@@ -44,8 +44,10 @@ def just_ack(ack: Ack):
 
 
 TIMEOUT_ERROR_MESSAGE = (
-    f":warning: Sorry! It looks like OpenAI didn't respond within {OPENAI_TIMEOUT_SECONDS} seconds. "
-    "Please try again later. :bow:"
+    f"Apologies! It seems that OpenAI didn't respond within the {OPENAI_TIMEOUT_SECONDS}-second timeframe. "
+    "Please try your request again later. "
+    "If you wish to extend the timeout limit, "
+    "you may consider deploying this app with customized settings on your infrastructure. :bow:"
 )
 DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
 
@@ -659,12 +661,13 @@ def prepare_and_share_thread_summary(
             context=context,
             text="Here is the summary:",
         )
-        summary = get_slack_thread_summary(
+        summary = generate_slack_thread_summary(
             context=context,
             logger=logger,
             openai_api_key=openai_api_key,
             prompt=prompt,
             thread_content=thread_content,
+            timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
 
         if where_to_display == "modal":
@@ -694,6 +697,28 @@ def prepare_and_share_thread_summary(
             )
     except Exception as e:
         logger.error(f"Failed to share a thread summary: {e}")
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "request-thread-summary",
+                "title": {"type": "plain_text", "text": "Summarize the thread"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": translate(
+                                openai_api_key=openai_api_key,
+                                context=context,
+                                text=TIMEOUT_ERROR_MESSAGE,
+                            ),
+                        },
+                    },
+                ],
+            },
+        )
 
 
 def register_listeners(app: App):

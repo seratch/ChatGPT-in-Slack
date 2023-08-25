@@ -89,6 +89,7 @@ def make_synchronous_openai_call(
     openai_api_base: str,
     openai_api_version: str,
     openai_deployment_id: str,
+    timeout_seconds: int,
 ) -> OpenAIObject:
     return openai.ChatCompletion.create(
         api_key=openai_api_key,
@@ -107,6 +108,7 @@ def make_synchronous_openai_call(
         api_base=openai_api_base,
         api_version=openai_api_version,
         deployment_id=openai_deployment_id,
+        request_timeout=timeout_seconds,
     )
 
 
@@ -454,13 +456,14 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
     return _prompt_tokens_used_by_function_call_cache
 
 
-def get_slack_thread_summary(
+def generate_slack_thread_summary(
     *,
     context: BoltContext,
     logger: logging.Logger,
     openai_api_key: str,
     prompt: str,
     thread_content: str,
+    timeout_seconds: int,
 ) -> str:
     messages = [
         {
@@ -490,6 +493,7 @@ def get_slack_thread_summary(
         openai_api_base=context["OPENAI_API_BASE"],
         openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+        timeout_seconds=timeout_seconds,
     )
     spent_time = time.time() - start_time
     logger.debug(f"Making a summary took {spent_time} seconds")
