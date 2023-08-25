@@ -695,6 +695,25 @@ def prepare_and_share_thread_summary(
                 thread_ts=private_metadata.get("thread_ts"),
                 text=f"{here_is_summary}\n\n{summary}",
             )
+    except Timeout:
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "request-thread-summary",
+                "title": {"type": "plain_text", "text": "Summarize the thread"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": TIMEOUT_ERROR_MESSAGE,
+                        },
+                    },
+                ],
+            },
+        )
     except Exception as e:
         logger.error(f"Failed to share a thread summary: {e}")
         client.views_update(
@@ -709,11 +728,7 @@ def prepare_and_share_thread_summary(
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": translate(
-                                openai_api_key=openai_api_key,
-                                context=context,
-                                text=TIMEOUT_ERROR_MESSAGE,
-                            ),
+                            "text": f"My apologies! An error occurred while generating the summary: {e}",
                         },
                     },
                 ],
