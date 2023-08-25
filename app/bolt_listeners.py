@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -19,12 +20,15 @@ from app.openai_ops import (
     consume_openai_stream_to_write_reply,
     build_system_text,
     messages_within_context_window,
+    get_slack_thread_summary,
 )
 from app.slack_ops import (
     find_parent_message,
     is_no_mention_thread,
     post_wip_message,
     update_wip_message,
+    extract_state_value,
+    build_thread_replies_as_combined_text,
 )
 
 from app.utils import redact_string
@@ -43,6 +47,11 @@ TIMEOUT_ERROR_MESSAGE = (
     "Please try again later. :bow:"
 )
 DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
+
+
+#
+# Chat with the bot
+#
 
 
 def respond_to_app_mention(
@@ -439,9 +448,221 @@ def respond_to_new_message(
             )
 
 
+#
+# Summarize a thread
+#
+
+
+def show_summarize_option_modal(
+    ack: Ack,
+    client: WebClient,
+    body: dict,
+    context: BoltContext,
+):
+    openai_api_key = context.get("OPENAI_API_KEY")
+    prompt = translate(
+        openai_api_key=openai_api_key,
+        context=context,
+        text=(
+            "All replies posted in a Slack thread will be provided below. "
+            "Could you summarize the discussion in 200 characters or less?"
+        ),
+    )
+    thread_ts = body.get("message").get("thread_ts", body.get("message").get("ts"))
+    where_to_display_options = [
+        {
+            "text": {
+                "type": "plain_text",
+                "text": "Here, on this modal",
+            },
+            "value": "modal",
+        },
+        {
+            "text": {
+                "type": "plain_text",
+                "text": "As a reply in the thread",
+            },
+            "value": "reply",
+        },
+    ]
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view={
+            "type": "modal",
+            "callback_id": "request-thread-summary",
+            "title": {"type": "plain_text", "text": "Summarize the thread"},
+            "submit": {"type": "plain_text", "text": "Summarize"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "private_metadata": json.dumps(
+                {
+                    "thread_ts": thread_ts,
+                    "channel": context.channel_id,
+                }
+            ),
+            "blocks": [
+                {
+                    "type": "input",
+                    "block_id": "where-to-share-summary",
+                    "label": {
+                        "type": "plain_text",
+                        "text": "How would you like to see the summary?",
+                    },
+                    "element": {
+                        "action_id": "input",
+                        "type": "radio_buttons",
+                        "initial_option": where_to_display_options[0],
+                        "options": where_to_display_options,
+                    },
+                },
+                {
+                    "type": "input",
+                    "block_id": "prompt",
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "input",
+                        "multiline": True,
+                        "initial_value": prompt,
+                    },
+                    "label": {
+                        "type": "plain_text",
+                        "text": "Customize the prompt as you prefer:",
+                    },
+                },
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": "Note that after the instruction you provide, this app will append all the replies in the thread.",
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+    ack()
+
+
+def ack_summarize_options_modal_submission(
+    ack: Ack,
+    payload: dict,
+):
+    where_to_display = (
+        extract_state_value(payload, "where-to-share-summary")
+        .get("selected_option")
+        .get("value", "modal")
+    )
+    if where_to_display == "modal":
+        ack(
+            response_action="update",
+            view={
+                "type": "modal",
+                "callback_id": "request-thread-summary",
+                "title": {"type": "plain_text", "text": "Summarize the thread"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Got it! Working on the summary now ... :hourglass:",
+                        },
+                    },
+                ],
+            },
+        )
+    else:
+        ack(
+            response_action="update",
+            view={
+                "type": "modal",
+                "callback_id": "request-thread-summary",
+                "title": {"type": "plain_text", "text": "Summarize the thread"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "Got it! Once the summary is ready, I will post it in the thread.",
+                        },
+                    },
+                ],
+            },
+        )
+
+
+def prepare_and_share_thread_summary(
+    payload: dict,
+    client: WebClient,
+    context: BoltContext,
+    logger: logging.Logger,
+):
+    openai_api_key = context.get("OPENAI_API_KEY")
+    where_to_display = (
+        extract_state_value(payload, "where-to-share-summary")
+        .get("selected_option")
+        .get("value", "modal")
+    )
+    prompt = extract_state_value(payload, "prompt").get("value")
+    private_metadata = json.loads(payload.get("private_metadata"))
+    thread_content = build_thread_replies_as_combined_text(
+        context=context,
+        client=client,
+        channel=private_metadata.get("channel"),
+        thread_ts=private_metadata.get("thread_ts"),
+    )
+    here_is_summary = translate(
+        openai_api_key=openai_api_key,
+        context=context,
+        text="Here is the summary:",
+    )
+    summary = get_slack_thread_summary(
+        context=context,
+        logger=logger,
+        openai_api_key=openai_api_key,
+        prompt=prompt,
+        thread_content=thread_content,
+    )
+
+    if where_to_display == "modal":
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "request-thread-summary",
+                "title": {"type": "plain_text", "text": "Summarize the thread"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{here_is_summary}\n\n{summary}",
+                        },
+                    },
+                ],
+            },
+        )
+    else:
+        client.chat_postMessage(
+            channel=private_metadata.get("channel"),
+            thread_ts=private_metadata.get("thread_ts"),
+            text=f"{here_is_summary}\n\n{summary}",
+        )
+
+
 def register_listeners(app: App):
+    # Chat with the bot
     app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
+
+    # Summarize a thread
+    app.shortcut("summarize-thread")(show_summarize_option_modal)
+    app.view("request-thread-summary")(
+        ack=ack_summarize_options_modal_submission,
+        lazy=[prepare_and_share_thread_summary],
+    )
 
 
 MESSAGE_SUBTYPES_TO_SKIP = ["message_changed", "message_deleted"]
