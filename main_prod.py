@@ -249,8 +249,12 @@ def handler(event, context_):
                                     "value": "gpt-3.5-turbo",
                                 },
                                 {
-                                    "text": {"type": "plain_text", "text": "GPT-4"},
+                                    "text": {"type": "plain_text", "text": "GPT-4 8K"},
                                     "value": "gpt-4",
+                                },
+                                {
+                                    "text": {"type": "plain_text", "text": "GPT-4 32K"},
+                                    "value": "gpt-4-32k",
                                 },
                             ],
                             "initial_option": {

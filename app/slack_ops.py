@@ -4,6 +4,9 @@ from typing import List, Dict
 from slack_sdk.web import WebClient, SlackResponse
 from slack_bolt import BoltContext
 
+from app.markdown import slack_to_markdown
+
+
 # ----------------------------
 # General operations in a channel
 # ----------------------------
@@ -28,6 +31,32 @@ def find_parent_message(
 def is_no_mention_thread(context: BoltContext, parent_message: dict) -> bool:
     parent_message_text = parent_message.get("text", "")
     return f"<@{context.bot_user_id}>" in parent_message_text
+
+
+def build_thread_replies_as_combined_text(
+    *,
+    context: BoltContext,
+    client: WebClient,
+    channel: str,
+    thread_ts: str,
+) -> str:
+    thread_content = ""
+    for page in client.conversations_replies(
+        channel=channel,
+        ts=thread_ts,
+        limit=1000,
+    ):
+        for reply in page.get("messages", []):
+            user = reply.get("user")
+            if user == context.bot_user_id:  # Skip replies by this app
+                continue
+            if user is None:
+                user = client.bots_info(bot=reply.get("bot_id"))["bot"]["user_id"]
+                if user is None or user == context.bot_user_id:
+                    continue
+            text = slack_to_markdown("".join(reply["text"].splitlines()))
+            thread_content += f"<@{user}>: {text}\n"
+    return thread_content
 
 
 # ----------------------------
@@ -108,3 +137,13 @@ def build_home_tab(message: str, configure_label: str) -> dict:
             }
         ],
     }
+
+
+# ----------------------------
+# Modals
+# ----------------------------
+
+
+def extract_state_value(payload: dict, block_id: str, action_id: str = "input") -> dict:
+    state_values = payload["state"]["values"]
+    return state_values[block_id][action_id]

@@ -47,18 +47,18 @@ def translate(*, openai_api_key: str, context: BoltContext, text: str) -> str:
             {
                 "role": "system",
                 "content": "You're the AI model that primarily focuses on the quality of language translation. "
-                "You must not change the meaning of sentences when translating them into a different language. "
-                "You must provide direct translation result as much as possible. "
-                "When the given text is a single verb/noun, its translated text must be a norm/verb form too. "
+                "You always respond with the only the translated text in a format suitable for Slack user interface. "
                 "Slack's emoji (e.g., :hourglass_flowing_sand:) and mention parts must be kept as-is. "
-                "Your response must not include any additional notes in English. "
-                "Your response must omit English version / pronunciation guide for the result. ",
+                "You don't change the meaning of sentences when translating them into a different language. "
+                "When the given text is a single verb/noun, its translated text must be a norm/verb form too. ",
             },
             {
                 "role": "user",
-                "content": f"Can you translate {text} into {lang} in a professional tone? "
-                "Please respond with the only the translated text in a format suitable for Slack user interface. "
-                "No need to append any English notes and guides.",
+                "content": f"Can you translate the following text into {lang} in a professional tone? "
+                "Your response must omit any English version / pronunciation guide for the result. "
+                "Again, no need to append any English notes and guides about the result. "
+                "Just return the translation result. "
+                f"Here is the original sentence you need to translate:\n{text}",
             },
         ],
         top_p=1,

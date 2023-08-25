@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 import re
@@ -75,6 +76,38 @@ def messages_within_context_window(
             # Fall through and let the OpenAI error handler deal with it
             break
     return messages, num_context_tokens, max_context_tokens
+
+
+def make_synchronous_openai_call(
+    *,
+    openai_api_key: str,
+    model: str,
+    temperature: float,
+    messages: List[Dict[str, Union[str, Dict[str, str]]]],
+    user: str,
+    openai_api_type: str,
+    openai_api_base: str,
+    openai_api_version: str,
+    openai_deployment_id: str,
+) -> OpenAIObject:
+    return openai.ChatCompletion.create(
+        api_key=openai_api_key,
+        model=model,
+        messages=messages,
+        top_p=1,
+        n=1,
+        max_tokens=MAX_TOKENS,
+        temperature=temperature,
+        presence_penalty=0,
+        frequency_penalty=0,
+        logit_bias={},
+        user=user,
+        stream=False,
+        api_type=openai_api_type,
+        api_base=openai_api_base,
+        api_version=openai_api_version,
+        deployment_id=openai_deployment_id,
+    )
 
 
 def start_receiving_openai_response(
@@ -419,3 +452,45 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
         module.functions
     ) - _calculate_prompt_tokens(None)
     return _prompt_tokens_used_by_function_call_cache
+
+
+def get_slack_thread_summary(
+    *,
+    context: BoltContext,
+    logger: logging.Logger,
+    openai_api_key: str,
+    prompt: str,
+    thread_content: str,
+) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You're an assistant tasked with helping Slack users by summarizing threads. "
+                "You'll receive a collection of replies in this format: <@user_id>: reply text\n"
+                "Your role is to provide a concise summary that highlights key facts and decisions. "
+                "If the first line of a user's request is in a non-English language, "
+                "please summarize in that same language. "
+                "Lastly, please prioritize speed of generation over perfection."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"{prompt}\n\n{thread_content}",
+        },
+    ]
+    start_time = time.time()
+    openai_response = make_synchronous_openai_call(
+        openai_api_key=openai_api_key,
+        model=context["OPENAI_MODEL"],
+        temperature=context["OPENAI_TEMPERATURE"],
+        messages=messages,
+        user=context.actor_user_id,
+        openai_api_type=context["OPENAI_API_TYPE"],
+        openai_api_base=context["OPENAI_API_BASE"],
+        openai_api_version=context["OPENAI_API_VERSION"],
+        openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+    )
+    spent_time = time.time() - start_time
+    logger.debug(f"Making a summary took {spent_time} seconds")
+    return openai_response["choices"][0]["message"]["content"]
