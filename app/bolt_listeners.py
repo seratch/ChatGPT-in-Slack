@@ -6,6 +6,7 @@ import time
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
+from slack_sdk.errors import SlackApiError
 from slack_sdk.web import WebClient
 
 from app.env import (
@@ -485,60 +486,100 @@ def show_summarize_option_modal(
             "value": "reply",
         },
     ]
+    is_error = False
+    blocks = []
+    try:
+        # Test if this bot is in the channel
+        client.conversations_replies(
+            channel=context.channel_id,
+            ts=thread_ts,
+            limit=1,
+        )
+        blocks = [
+            {
+                "type": "input",
+                "block_id": "where-to-share-summary",
+                "label": {
+                    "type": "plain_text",
+                    "text": "How would you like to see the summary?",
+                },
+                "element": {
+                    "action_id": "input",
+                    "type": "radio_buttons",
+                    "initial_option": where_to_display_options[0],
+                    "options": where_to_display_options,
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "prompt",
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input",
+                    "multiline": True,
+                    "initial_value": prompt,
+                },
+                "label": {
+                    "type": "plain_text",
+                    "text": "Customize the prompt as you prefer:",
+                },
+            },
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": "Note that after the instruction you provide, this app will append all the replies in the thread.",
+                    }
+                ],
+            },
+        ]
+    except SlackApiError as e:
+        is_error = True
+        error_code = e.response["error"]
+        if error_code == "not_in_channel":
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "It appears that this app's bot user is not a member of the specified channel. "
+                        f"Could you please invite <@{context.bot_user_id}> to <#{context.channel_id}> "
+                        "to make this app functional?",
+                    },
+                }
+            ]
+        else:
+            blocks = [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"Something is wrong! (error: {error_code})",
+                    },
+                }
+            ]
+
+    view = {
+        "type": "modal",
+        "callback_id": "request-thread-summary",
+        "title": {"type": "plain_text", "text": "Summarize the thread"},
+        "submit": {"type": "plain_text", "text": "Summarize"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "private_metadata": json.dumps(
+            {
+                "thread_ts": thread_ts,
+                "channel": context.channel_id,
+            }
+        ),
+        "blocks": blocks,
+    }
+    if is_error is True:
+        del view["submit"]
+
     client.views_open(
         trigger_id=body.get("trigger_id"),
-        view={
-            "type": "modal",
-            "callback_id": "request-thread-summary",
-            "title": {"type": "plain_text", "text": "Summarize the thread"},
-            "submit": {"type": "plain_text", "text": "Summarize"},
-            "close": {"type": "plain_text", "text": "Close"},
-            "private_metadata": json.dumps(
-                {
-                    "thread_ts": thread_ts,
-                    "channel": context.channel_id,
-                }
-            ),
-            "blocks": [
-                {
-                    "type": "input",
-                    "block_id": "where-to-share-summary",
-                    "label": {
-                        "type": "plain_text",
-                        "text": "How would you like to see the summary?",
-                    },
-                    "element": {
-                        "action_id": "input",
-                        "type": "radio_buttons",
-                        "initial_option": where_to_display_options[0],
-                        "options": where_to_display_options,
-                    },
-                },
-                {
-                    "type": "input",
-                    "block_id": "prompt",
-                    "element": {
-                        "type": "plain_text_input",
-                        "action_id": "input",
-                        "multiline": True,
-                        "initial_value": prompt,
-                    },
-                    "label": {
-                        "type": "plain_text",
-                        "text": "Customize the prompt as you prefer:",
-                    },
-                },
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": "Note that after the instruction you provide, this app will append all the replies in the thread.",
-                        }
-                    ],
-                },
-            ],
-        },
+        view=view,
     )
     ack()
 
@@ -598,58 +639,61 @@ def prepare_and_share_thread_summary(
     context: BoltContext,
     logger: logging.Logger,
 ):
-    openai_api_key = context.get("OPENAI_API_KEY")
-    where_to_display = (
-        extract_state_value(payload, "where-to-share-summary")
-        .get("selected_option")
-        .get("value", "modal")
-    )
-    prompt = extract_state_value(payload, "prompt").get("value")
-    private_metadata = json.loads(payload.get("private_metadata"))
-    thread_content = build_thread_replies_as_combined_text(
-        context=context,
-        client=client,
-        channel=private_metadata.get("channel"),
-        thread_ts=private_metadata.get("thread_ts"),
-    )
-    here_is_summary = translate(
-        openai_api_key=openai_api_key,
-        context=context,
-        text="Here is the summary:",
-    )
-    summary = get_slack_thread_summary(
-        context=context,
-        logger=logger,
-        openai_api_key=openai_api_key,
-        prompt=prompt,
-        thread_content=thread_content,
-    )
-
-    if where_to_display == "modal":
-        client.views_update(
-            view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "request-thread-summary",
-                "title": {"type": "plain_text", "text": "Summarize the thread"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{here_is_summary}\n\n{summary}",
-                        },
-                    },
-                ],
-            },
+    try:
+        openai_api_key = context.get("OPENAI_API_KEY")
+        where_to_display = (
+            extract_state_value(payload, "where-to-share-summary")
+            .get("selected_option")
+            .get("value", "modal")
         )
-    else:
-        client.chat_postMessage(
+        prompt = extract_state_value(payload, "prompt").get("value")
+        private_metadata = json.loads(payload.get("private_metadata"))
+        thread_content = build_thread_replies_as_combined_text(
+            context=context,
+            client=client,
             channel=private_metadata.get("channel"),
             thread_ts=private_metadata.get("thread_ts"),
-            text=f"{here_is_summary}\n\n{summary}",
         )
+        here_is_summary = translate(
+            openai_api_key=openai_api_key,
+            context=context,
+            text="Here is the summary:",
+        )
+        summary = get_slack_thread_summary(
+            context=context,
+            logger=logger,
+            openai_api_key=openai_api_key,
+            prompt=prompt,
+            thread_content=thread_content,
+        )
+
+        if where_to_display == "modal":
+            client.views_update(
+                view_id=payload["id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "request-thread-summary",
+                    "title": {"type": "plain_text", "text": "Summarize the thread"},
+                    "close": {"type": "plain_text", "text": "Close"},
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": f"{here_is_summary}\n\n{summary}",
+                            },
+                        },
+                    ],
+                },
+            )
+        else:
+            client.chat_postMessage(
+                channel=private_metadata.get("channel"),
+                thread_ts=private_metadata.get("thread_ts"),
+                text=f"{here_is_summary}\n\n{summary}",
+            )
+    except Exception as e:
+        logger.error(f"Failed to share a thread summary: {e}")
 
 
 def register_listeners(app: App):
