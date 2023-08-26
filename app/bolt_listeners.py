@@ -44,7 +44,7 @@ def just_ack(ack: Ack):
 
 
 TIMEOUT_ERROR_MESSAGE = (
-    f"Apologies! It seems that OpenAI didn't respond within the {OPENAI_TIMEOUT_SECONDS}-second timeframe. "
+    f":warning: Apologies! It seems that OpenAI didn't respond within the {OPENAI_TIMEOUT_SECONDS}-second timeframe. "
     "Please try your request again later. "
     "If you wish to extend the timeout limit, "
     "you may consider deploying this app with customized settings on your infrastructure. :bow:"
@@ -728,7 +728,8 @@ def prepare_and_share_thread_summary(
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"My apologies! An error occurred while generating the summary: {e}",
+                            "text": ":warning: My apologies! "
+                            f"An error occurred while generating the summary of this thread: {e}",
                         },
                     },
                 ],
