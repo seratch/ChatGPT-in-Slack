@@ -4,6 +4,7 @@ from typing import List, Dict
 from slack_sdk.web import WebClient, SlackResponse
 from slack_bolt import BoltContext
 
+from app.i18n import translate
 from app.markdown import slack_to_markdown
 
 
@@ -117,16 +118,51 @@ DEFAULT_HOME_TAB_MESSAGE = (
 DEFAULT_HOME_TAB_CONFIGURE_LABEL = "Configure"
 
 
-def build_home_tab(message: str, configure_label: str) -> dict:
+def build_home_tab(
+    openai_api_key: str,
+    context: BoltContext,
+    message: str = DEFAULT_HOME_TAB_MESSAGE,
+) -> dict:
+    original_sentences = "\n".join(
+        [
+            f"* {message}",
+            f"* {DEFAULT_HOME_TAB_CONFIGURE_LABEL}",
+            "* Can you proofread the following sentence without changing its meaning at all?",
+            "* (Start chat from scratch)",
+            "* Start",
+            "* Chat Templates",
+            "* Configuration",
+        ]
+    )
+    translated_sentences = list(
+        map(
+            lambda s: s.replace("* ", ""),
+            translate(
+                openai_api_key=openai_api_key,
+                context=context,
+                text=original_sentences,
+            ).split("\n"),
+        )
+    )
+    message = translated_sentences[0]
+    configure_label = translated_sentences[1]
+    proofreading = translated_sentences[2]
+    from_scratch = translated_sentences[3]
+    start = translated_sentences[4]
+    chat_templates = translated_sentences[5]
+    configuration = translated_sentences[6]
+
     return {
         "type": "home",
         "blocks": [
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": message,
-                },
+                "text": {"type": "mrkdwn", "text": f"*{configuration}*"},
+            },
+            {"type": "divider"},
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": message},
                 "accessory": {
                     "action_id": "configure",
                     "type": "button",
@@ -134,7 +170,32 @@ def build_home_tab(message: str, configure_label: str) -> dict:
                     "style": "primary",
                     "value": "api_key",
                 },
-            }
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"*{chat_templates}*"},
+            },
+            {"type": "divider"},
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": proofreading},
+                "accessory": {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": start},
+                    "value": proofreading,
+                    "action_id": "templates-proofread",
+                },
+            },
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": from_scratch},
+                "accessory": {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": start},
+                    "value": " ",
+                    "action_id": "templates-from-scratch",
+                },
+            },
         ],
     }
 

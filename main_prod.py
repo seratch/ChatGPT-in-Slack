@@ -177,27 +177,19 @@ def handler(event, context_):
     @app.event("app_home_opened")
     def render_home_tab(client: WebClient, context: BoltContext):
         message = DEFAULT_HOME_TAB_MESSAGE
-        configure_label = DEFAULT_HOME_TAB_CONFIGURE_LABEL
         try:
             s3_client.get_object(Bucket=openai_bucket_name, Key=context.team_id)
             message = "This app is ready to use in this workspace :raised_hands:"
         except:  # noqa: E722
             pass
-
         openai_api_key = context.get("OPENAI_API_KEY")
-        if openai_api_key is not None:
-            message = translate(
-                openai_api_key=openai_api_key, context=context, text=message
-            )
-            configure_label = translate(
-                openai_api_key=openai_api_key,
-                context=context,
-                text=DEFAULT_HOME_TAB_CONFIGURE_LABEL,
-            )
-
         client.views_publish(
             user_id=context.user_id,
-            view=build_home_tab(message, configure_label),
+            view=build_home_tab(
+                openai_api_key=openai_api_key,
+                context=context,
+                message=message,
+            ),
         )
 
     @app.action("configure")

@@ -42,19 +42,12 @@ if __name__ == "__main__":
     @app.event("app_home_opened")
     def render_home_tab(client: WebClient, context: BoltContext):
         already_set_api_key = os.environ["OPENAI_API_KEY"]
-        text = translate(
-            openai_api_key=already_set_api_key,
-            context=context,
-            text=DEFAULT_HOME_TAB_MESSAGE,
-        )
-        configure_label = translate(
-            openai_api_key=already_set_api_key,
-            context=context,
-            text=DEFAULT_HOME_TAB_CONFIGURE_LABEL,
-        )
         client.views_publish(
             user_id=context.user_id,
-            view=build_home_tab(text, configure_label),
+            view=build_home_tab(
+                openai_api_key=already_set_api_key,
+                context=context,
+            ),
         )
 
     if USE_SLACK_LANGUAGE is True:

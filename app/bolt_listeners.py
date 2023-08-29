@@ -22,6 +22,8 @@ from app.openai_ops import (
     build_system_text,
     messages_within_context_window,
     generate_slack_thread_summary,
+    generate_proofreading_result,
+    generate_chatgpt_response,
 )
 from app.slack_ops import (
     find_parent_message,
@@ -737,6 +739,277 @@ def prepare_and_share_thread_summary(
         )
 
 
+#
+# Proofread user inputs
+#
+
+
+def start_proofreading(client: WebClient, body: dict, payload: dict):
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view={
+            "type": "modal",
+            "callback_id": "proofread",
+            "title": {"type": "plain_text", "text": "Proofreading"},
+            "submit": {"type": "plain_text", "text": "Submit"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": payload.get("value")},
+                },
+                {
+                    "type": "input",
+                    "block_id": "original_text",
+                    "label": {"type": "plain_text", "text": "Your Text"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "input",
+                        "multiline": True,
+                    },
+                },
+            ],
+        },
+    )
+
+
+def ack_proofreading_modal_submission(
+    ack: Ack,
+    context: BoltContext,
+    payload: dict,
+):
+    original_text = extract_state_value(payload, "original_text").get("value")
+    text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
+    ack(
+        response_action="update",
+        view={
+            "type": "modal",
+            "callback_id": "proofread",
+            "title": {"type": "plain_text", "text": "Proofreading"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{text}\n\nProofreading this now ... :hourglass:",
+                    },
+                },
+            ],
+        },
+    )
+
+
+def display_proofreading_result(
+    client: WebClient,
+    context: BoltContext,
+    logger: logging.Logger,
+    payload: dict,
+):
+    try:
+        openai_api_key = context.get("OPENAI_API_KEY")
+        original_text = extract_state_value(payload, "original_text").get("value")
+        text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
+        result = generate_proofreading_result(
+            context=context,
+            logger=logger,
+            openai_api_key=openai_api_key,
+            original_text=original_text,
+            timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "proofread",
+                "title": {"type": "plain_text", "text": "Proofreading"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{text}\n\n{result}",
+                        },
+                    },
+                ],
+            },
+        )
+    except Timeout:
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "proofread",
+                "title": {"type": "plain_text", "text": "Proofreading"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}",
+                        },
+                    },
+                ],
+            },
+        )
+    except Exception as e:
+        logger.error(f"Failed to share a thread summary: {e}")
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "proofread",
+                "title": {"type": "plain_text", "text": "Proofreading"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{text}\n\n:warning: My apologies!"
+                            f"An error occurred while generating the summary of this thread: {e}",
+                        },
+                    },
+                ],
+            },
+        )
+
+
+#
+# Chat from scratch
+#
+
+
+def start_chat_from_scratch(client: WebClient, body: dict):
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view={
+            "type": "modal",
+            "callback_id": "chat-from-scratch",
+            "title": {"type": "plain_text", "text": "ChatGPT"},
+            "submit": {"type": "plain_text", "text": "Submit"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "blocks": [
+                {
+                    "type": "input",
+                    "block_id": "prompt",
+                    "label": {"type": "plain_text", "text": "Prompt"},
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "input",
+                        "multiline": True,
+                    },
+                },
+            ],
+        },
+    )
+
+
+def ack_chat_from_scratch_modal_submission(
+    ack: Ack,
+    payload: dict,
+):
+    prompt = extract_state_value(payload, "prompt").get("value")
+    text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
+    ack(
+        response_action="update",
+        view={
+            "type": "modal",
+            "callback_id": "chat-from-scratch",
+            "title": {"type": "plain_text", "text": "ChatGPT"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{text}\n\nWorking on this now ... :hourglass:",
+                    },
+                },
+            ],
+        },
+    )
+
+
+def display_chat_from_scratch_result(
+    client: WebClient,
+    context: BoltContext,
+    logger: logging.Logger,
+    payload: dict,
+):
+    openai_api_key = context.get("OPENAI_API_KEY")
+    try:
+        prompt = extract_state_value(payload, "prompt").get("value")
+        text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
+        result = generate_chatgpt_response(
+            context=context,
+            logger=logger,
+            openai_api_key=openai_api_key,
+            prompt=prompt,
+            timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "chat-from-scratch",
+                "title": {"type": "plain_text", "text": "ChatGPT"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{text}\n\n{result}",
+                        },
+                    },
+                ],
+            },
+        )
+    except Timeout:
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "chat-from-scratch",
+                "title": {"type": "plain_text", "text": "ChatGPT"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}",
+                        },
+                    },
+                ],
+            },
+        )
+    except Exception as e:
+        logger.error(f"Failed to share a thread summary: {e}")
+        client.views_update(
+            view_id=payload["id"],
+            view={
+                "type": "modal",
+                "callback_id": "chat-from-scratch",
+                "title": {"type": "plain_text", "text": "ChatGPT"},
+                "close": {"type": "plain_text", "text": "Close"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": f"{text}\n\n:warning: My apologies!"
+                            f"An error occurred while generating the summary of this thread: {e}",
+                        },
+                    },
+                ],
+            },
+        )
+
+
 def register_listeners(app: App):
     # Chat with the bot
     app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
@@ -747,6 +1020,24 @@ def register_listeners(app: App):
     app.view("request-thread-summary")(
         ack=ack_summarize_options_modal_submission,
         lazy=[prepare_and_share_thread_summary],
+    )
+
+    # Use templates
+    app.action("templates-proofread")(
+        ack=just_ack,
+        lazy=[start_proofreading],
+    )
+    app.view("proofread")(
+        ack=ack_proofreading_modal_submission,
+        lazy=[display_proofreading_result],
+    )
+    app.action("templates-from-scratch")(
+        ack=just_ack,
+        lazy=[start_chat_from_scratch],
+    )
+    app.view("chat-from-scratch")(
+        ack=ack_chat_from_scratch_modal_submission,
+        lazy=[display_chat_from_scratch_result],
     )
 
 

@@ -3,7 +3,7 @@ from typing import Optional
 import openai
 from slack_bolt import BoltContext
 
-from .openai_ops import GPT_3_5_TURBO_0301_MODEL
+from .openai_constants import GPT_3_5_TURBO_0613_MODEL
 
 # All the supported languages for Slack app as of March 2023
 _locale_to_lang = {
@@ -42,7 +42,7 @@ def translate(*, openai_api_key: str, context: BoltContext, text: str) -> str:
         return cached_result
     response = openai.ChatCompletion.create(
         api_key=openai_api_key,
-        model=GPT_3_5_TURBO_0301_MODEL,
+        model=GPT_3_5_TURBO_0613_MODEL,
         messages=[
             {
                 "role": "system",
@@ -50,7 +50,8 @@ def translate(*, openai_api_key: str, context: BoltContext, text: str) -> str:
                 "You always respond with the only the translated text in a format suitable for Slack user interface. "
                 "Slack's emoji (e.g., :hourglass_flowing_sand:) and mention parts must be kept as-is. "
                 "You don't change the meaning of sentences when translating them into a different language. "
-                "When the given text is a single verb/noun, its translated text must be a norm/verb form too. ",
+                "When the given text is a single verb/noun, its translated text must be a norm/verb form too. "
+                "When the given text is in markdown format, the format must be kept as much as possible. ",
             },
             {
                 "role": "user",
