@@ -15,24 +15,12 @@ from slack_bolt import BoltContext
 from slack_sdk.web import WebClient
 
 from app.markdown import slack_to_markdown, markdown_to_slack
+from app.openai_constants import *
 from app.slack_ops import update_wip_message
 
 # ----------------------------
 # Internal functions
 # ----------------------------
-
-MAX_TOKENS = 1024
-GPT_3_5_TURBO_MODEL = "gpt-3.5-turbo"
-GPT_3_5_TURBO_0301_MODEL = "gpt-3.5-turbo-0301"
-GPT_3_5_TURBO_0613_MODEL = "gpt-3.5-turbo-0613"
-GPT_3_5_TURBO_16K_MODEL = "gpt-3.5-turbo-16k"
-GPT_3_5_TURBO_16K_0613_MODEL = "gpt-3.5-turbo-16k-0613"
-GPT_4_MODEL = "gpt-4"
-GPT_4_0314_MODEL = "gpt-4-0314"
-GPT_4_0613_MODEL = "gpt-4-0613"
-GPT_4_32K_MODEL = "gpt-4-32k"
-GPT_4_32K_0314_MODEL = "gpt-4-32k-0314"
-GPT_4_32K_0613_MODEL = "gpt-4-32k-0613"
 
 _prompt_tokens_used_by_function_call_cache: Optional[int] = None
 
@@ -497,4 +485,85 @@ def generate_slack_thread_summary(
     )
     spent_time = time.time() - start_time
     logger.debug(f"Making a summary took {spent_time} seconds")
+    return openai_response["choices"][0]["message"]["content"]
+
+
+def generate_proofreading_result(
+    *,
+    context: BoltContext,
+    logger: logging.Logger,
+    openai_api_key: str,
+    original_text: str,
+    timeout_seconds: int,
+) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You're an assistant tasked with helping Slack users by proofreading a given text. "
+                "If the first line of a user's request is in a non-English language, "
+                "please provide its proofreading result in that same language. "
+                "You only improve the quality of given sentences, "
+                "so you never change the meaning of the original sentence as much as possible. "
+                "Lastly, please prioritize speed of generation over perfection."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"Can you proofread the following sentences?\n\n{original_text}",
+        },
+    ]
+    start_time = time.time()
+    openai_response = make_synchronous_openai_call(
+        openai_api_key=openai_api_key,
+        model=context["OPENAI_MODEL"],
+        temperature=context["OPENAI_TEMPERATURE"],
+        messages=messages,
+        user=context.actor_user_id,
+        openai_api_type=context["OPENAI_API_TYPE"],
+        openai_api_base=context["OPENAI_API_BASE"],
+        openai_api_version=context["OPENAI_API_VERSION"],
+        openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+        timeout_seconds=timeout_seconds,
+    )
+    spent_time = time.time() - start_time
+    logger.debug(f"Proofreading took {spent_time} seconds")
+    return openai_response["choices"][0]["message"]["content"]
+
+
+def generate_chatgpt_response(
+    *,
+    context: BoltContext,
+    logger: logging.Logger,
+    openai_api_key: str,
+    prompt: str,
+    timeout_seconds: int,
+) -> str:
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You're an assistant tasked with helping Slack users by responding to a given prompt. "
+                "If the first line of a user's request is in a non-English language, "
+                "please provide its result in that same language. "
+                "Lastly, please prioritize speed of generation over perfection."
+            ),
+        },
+        {"role": "user", "content": prompt},
+    ]
+    start_time = time.time()
+    openai_response = make_synchronous_openai_call(
+        openai_api_key=openai_api_key,
+        model=context["OPENAI_MODEL"],
+        temperature=context["OPENAI_TEMPERATURE"],
+        messages=messages,
+        user=context.actor_user_id,
+        openai_api_type=context["OPENAI_API_TYPE"],
+        openai_api_base=context["OPENAI_API_BASE"],
+        openai_api_version=context["OPENAI_API_VERSION"],
+        openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+        timeout_seconds=timeout_seconds,
+    )
+    spent_time = time.time() - start_time
+    logger.debug(f"Proofreading took {spent_time} seconds")
     return openai_response["choices"][0]["message"]["content"]
