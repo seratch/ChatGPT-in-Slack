@@ -128,7 +128,7 @@ def build_home_tab(
             f"* {message}",
             f"* {DEFAULT_HOME_TAB_CONFIGURE_LABEL}",
             "* Can you proofread the following sentence without changing its meaning at all?",
-            "* (Start chat from scratch)",
+            "* (Start a chat from scratch)",
             "* Start",
             "* Chat Templates",
             "* Configuration",
