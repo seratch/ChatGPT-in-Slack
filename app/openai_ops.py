@@ -15,7 +15,20 @@ from slack_bolt import BoltContext
 from slack_sdk.web import WebClient
 
 from app.markdown import slack_to_markdown, markdown_to_slack
-from app.openai_constants import *
+from app.openai_constants import (
+    MAX_TOKENS,
+    GPT_3_5_TURBO_MODEL,
+    GPT_3_5_TURBO_0301_MODEL,
+    GPT_3_5_TURBO_0613_MODEL,
+    GPT_3_5_TURBO_16K_MODEL,
+    GPT_3_5_TURBO_16K_0613_MODEL,
+    GPT_4_MODEL,
+    GPT_4_0314_MODEL,
+    GPT_4_0613_MODEL,
+    GPT_4_32K_MODEL,
+    GPT_4_32K_0314_MODEL,
+    GPT_4_32K_0613_MODEL,
+)
 from app.slack_ops import update_wip_message
 
 # ----------------------------
