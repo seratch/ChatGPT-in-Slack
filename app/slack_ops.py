@@ -119,9 +119,11 @@ DEFAULT_HOME_TAB_CONFIGURE_LABEL = "Configure"
 
 
 def build_home_tab(
-    openai_api_key: str,
+    *,
+    openai_api_key: Optional[str],
     context: BoltContext,
     message: str = DEFAULT_HOME_TAB_MESSAGE,
+    single_workspace_mode: bool = False,
 ) -> dict:
     original_sentences = "\n".join(
         [
@@ -152,52 +154,60 @@ def build_home_tab(
     chat_templates = translated_sentences[5]
     configuration = translated_sentences[6]
 
-    return {
-        "type": "home",
-        "blocks": [
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*{configuration}*"},
-            },
-            {"type": "divider"},
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": message},
-                "accessory": {
-                    "action_id": "configure",
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": configure_label},
-                    "style": "primary",
-                    "value": "api_key",
+    blocks = []
+    if single_workspace_mode is False:
+        blocks.extend(
+            [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*{configuration}*"},
                 },
-            },
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": f"*{chat_templates}*"},
-            },
-            {"type": "divider"},
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": proofreading},
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": start},
-                    "value": proofreading,
-                    "action_id": "templates-proofread",
+                {"type": "divider"},
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": message},
+                    "accessory": {
+                        "action_id": "configure",
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": configure_label},
+                        "style": "primary",
+                        "value": "api_key",
+                    },
                 },
-            },
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": from_scratch},
-                "accessory": {
-                    "type": "button",
-                    "text": {"type": "plain_text", "text": start},
-                    "value": " ",
-                    "action_id": "templates-from-scratch",
+            ]
+        )
+    if openai_api_key is not None:
+        blocks.extend(
+            [
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"*{chat_templates}*"},
                 },
-            },
-        ],
-    }
+                {"type": "divider"},
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": proofreading},
+                    "accessory": {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": start},
+                        "value": proofreading,
+                        "action_id": "templates-proofread",
+                    },
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": from_scratch},
+                    "accessory": {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": start},
+                        "value": " ",
+                        "action_id": "templates-from-scratch",
+                    },
+                },
+            ]
+        )
+
+    return {"type": "home", "blocks": blocks}
 
 
 # ----------------------------

@@ -33,7 +33,6 @@ from app.env import (
 from app.slack_ops import (
     build_home_tab,
     DEFAULT_HOME_TAB_MESSAGE,
-    DEFAULT_HOME_TAB_CONFIGURE_LABEL,
 )
 from app.i18n import translate
 

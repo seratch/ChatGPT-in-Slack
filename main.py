@@ -17,12 +17,7 @@ from app.env import (
     OPENAI_DEPLOYMENT_ID,
     OPENAI_FUNCTION_CALL_MODULE_NAME,
 )
-from app.slack_ops import (
-    build_home_tab,
-    DEFAULT_HOME_TAB_MESSAGE,
-    DEFAULT_HOME_TAB_CONFIGURE_LABEL,
-)
-from app.i18n import translate
+from app.slack_ops import build_home_tab
 
 
 if __name__ == "__main__":
@@ -47,6 +42,7 @@ if __name__ == "__main__":
             view=build_home_tab(
                 openai_api_key=already_set_api_key,
                 context=context,
+                single_workspace_mode=True,
             ),
         )
 

@@ -32,7 +32,10 @@ def from_locale_to_lang(locale: Optional[str]) -> Optional[str]:
 _translation_result_cache = {}
 
 
-def translate(*, openai_api_key: str, context: BoltContext, text: str) -> str:
+def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str) -> str:
+    if openai_api_key is None or len(openai_api_key.strip()) == 0:
+        return text
+
     lang = from_locale_to_lang(context.get("locale"))
     if lang is None or lang == "English":
         return text
