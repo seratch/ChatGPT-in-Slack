@@ -744,38 +744,42 @@ def prepare_and_share_thread_summary(
 #
 
 
+def build_proofreading_input_modal(prompt: str):
+    return {
+        "type": "modal",
+        "callback_id": "proofread",
+        "title": {"type": "plain_text", "text": "Proofreading"},
+        "submit": {"type": "plain_text", "text": "Submit"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "private_metadata": json.dumps({"prompt": prompt}),
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": prompt},
+            },
+            {
+                "type": "input",
+                "block_id": "original_text",
+                "label": {"type": "plain_text", "text": "Your Text"},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input",
+                    "multiline": True,
+                },
+            },
+        ],
+    }
+
+
 def start_proofreading(client: WebClient, body: dict, payload: dict):
     client.views_open(
         trigger_id=body.get("trigger_id"),
-        view={
-            "type": "modal",
-            "callback_id": "proofread",
-            "title": {"type": "plain_text", "text": "Proofreading"},
-            "submit": {"type": "plain_text", "text": "Submit"},
-            "close": {"type": "plain_text", "text": "Close"},
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": payload.get("value")},
-                },
-                {
-                    "type": "input",
-                    "block_id": "original_text",
-                    "label": {"type": "plain_text", "text": "Your Text"},
-                    "element": {
-                        "type": "plain_text_input",
-                        "action_id": "input",
-                        "multiline": True,
-                    },
-                },
-            ],
-        },
+        view=build_proofreading_input_modal(payload.get("value")),
     )
 
 
 def ack_proofreading_modal_submission(
     ack: Ack,
-    context: BoltContext,
     payload: dict,
 ):
     original_text = extract_state_value(payload, "original_text").get("value")
@@ -787,6 +791,7 @@ def ack_proofreading_modal_submission(
             "callback_id": "proofread",
             "title": {"type": "plain_text", "text": "Proofreading"},
             "close": {"type": "plain_text", "text": "Close"},
+            "private_metadata": payload["private_metadata"],
             "blocks": [
                 {
                     "type": "section",
@@ -821,9 +826,11 @@ def display_proofreading_result(
             view_id=payload["id"],
             view={
                 "type": "modal",
-                "callback_id": "proofread",
+                "callback_id": "proofread-result",
                 "title": {"type": "plain_text", "text": "Proofreading"},
+                "submit": {"type": "plain_text", "text": "Try Another"},
                 "close": {"type": "plain_text", "text": "Close"},
+                "private_metadata": payload["private_metadata"],
                 "blocks": [
                     {
                         "type": "section",
@@ -840,9 +847,11 @@ def display_proofreading_result(
             view_id=payload["id"],
             view={
                 "type": "modal",
-                "callback_id": "proofread",
+                "callback_id": "proofread-result",
                 "title": {"type": "plain_text", "text": "Proofreading"},
+                "submit": {"type": "plain_text", "text": "Try Another"},
                 "close": {"type": "plain_text", "text": "Close"},
+                "private_metadata": payload["private_metadata"],
                 "blocks": [
                     {
                         "type": "section",
@@ -860,9 +869,11 @@ def display_proofreading_result(
             view_id=payload["id"],
             view={
                 "type": "modal",
-                "callback_id": "proofread",
+                "callback_id": "proofread-result",
                 "title": {"type": "plain_text", "text": "Proofreading"},
+                "submit": {"type": "plain_text", "text": "Try Another"},
                 "close": {"type": "plain_text", "text": "Close"},
+                "private_metadata": payload["private_metadata"],
                 "blocks": [
                     {
                         "type": "section",
@@ -875,6 +886,14 @@ def display_proofreading_result(
                 ],
             },
         )
+
+
+def display_proofreading_modal_again(ack: Ack, payload):
+    private_metadata = json.loads(payload["private_metadata"])
+    ack(
+        response_action="update",
+        view=build_proofreading_input_modal(private_metadata["prompt"]),
+    )
 
 
 #
@@ -1023,6 +1042,8 @@ def register_listeners(app: App):
     )
 
     # Use templates
+
+    # Proofreading
     app.action("templates-proofread")(
         ack=just_ack,
         lazy=[start_proofreading],
@@ -1031,6 +1052,9 @@ def register_listeners(app: App):
         ack=ack_proofreading_modal_submission,
         lazy=[display_proofreading_result],
     )
+    app.view("proofread-result")(display_proofreading_modal_again)
+
+    # Free format chat
     app.action("templates-from-scratch")(
         ack=just_ack,
         lazy=[start_chat_from_scratch],
