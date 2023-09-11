@@ -233,6 +233,17 @@ def consume_openai_stream_to_write_reply(
                 "content": function_response,
             }
             messages.append(function_message)
+            function_called_callback = getattr(
+                function_call_module, f"{function_call['name']}_called", None
+            )
+            if function_called_callback is not None:
+                function_called_callback(
+                    function_response,
+                    client=client,
+                    wip_reply=wip_reply,
+                    context=context,
+                    messages=messages,
+                )
             messages_within_context_window(messages, context=context)
             sub_stream = start_receiving_openai_response(
                 openai_api_key=context.get("OPENAI_API_KEY"),
