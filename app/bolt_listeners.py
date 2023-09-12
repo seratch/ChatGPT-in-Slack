@@ -235,7 +235,7 @@ def respond_to_new_message(
     try:
         is_in_dm_with_bot = payload.get("channel_type") == "im"
         is_no_mention_required = False
-        thread_ts = payload.get("thread_ts")
+        thread_ts = payload.get('ts') if is_in_dm_with_bot else payload.get("thread_ts")
         if is_in_dm_with_bot is False and thread_ts is None:
             return
 
@@ -351,7 +351,7 @@ def respond_to_new_message(
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=payload.get("thread_ts") if is_in_dm_with_bot else payload["ts"],
+            thread_ts=thread_ts,
             loading_text=loading_text,
             messages=messages,
             user=user_id,

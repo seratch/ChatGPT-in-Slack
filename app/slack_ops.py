@@ -16,6 +16,7 @@ from app.markdown import slack_to_markdown
 def find_parent_message(
     client: WebClient, channel_id: Optional[str], thread_ts: Optional[str]
 ) -> Optional[dict]:
+
     if channel_id is None or thread_ts is None:
         return None
 
