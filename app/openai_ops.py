@@ -3,6 +3,7 @@ import threading
 import time
 import re
 import json
+import types
 from typing import List, Dict, Any, Generator, Tuple, Optional, Union
 from importlib import import_module
 
@@ -226,6 +227,14 @@ def consume_openai_stream_to_write_reply(
             function_call_module = import_module(function_call_module_name)
             function_to_call = getattr(function_call_module, function_call["name"])
             function_args = json.loads(function_call["arguments"])
+            execute_function_call_callback_if_defined(
+                function_call_module,
+                function_call["name"],
+                "before",
+                {
+                    "messages": messages,
+                },
+            )
             function_response = function_to_call(**function_args)
             function_message = {
                 "role": "function",
@@ -233,17 +242,15 @@ def consume_openai_stream_to_write_reply(
                 "content": function_response,
             }
             messages.append(function_message)
-            function_called_callback = getattr(
-                function_call_module, f"{function_call['name']}_called", None
+            execute_function_call_callback_if_defined(
+                function_call_module,
+                function_call["name"],
+                "after",
+                {
+                    "function_response": function_response,
+                    "messages": messages,
+                },
             )
-            if function_called_callback is not None:
-                function_called_callback(
-                    function_response,
-                    client=client,
-                    wip_reply=wip_reply,
-                    context=context,
-                    messages=messages,
-                )
             messages_within_context_window(messages, context=context)
             sub_stream = start_receiving_openai_response(
                 openai_api_key=context.get("OPENAI_API_KEY"),
@@ -466,6 +473,24 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
         module.functions
     ) - _calculate_prompt_tokens(None)
     return _prompt_tokens_used_by_function_call_cache
+
+
+def execute_function_call_callback_if_defined(
+    function_call_module: types.ModuleType,
+    function_name: str,
+    callback_type: str,
+    callback_kwargs: Dict[str, Any],
+):
+    function_callbacks = getattr(function_call_module, "function_callbacks", None)
+    if function_callbacks is None:
+        return
+    callback_target = {"function_name": function_name, "callback_type": callback_type}
+    for cb in function_callbacks:
+        if callback_target.items() <= cb.items():
+            callback_function_name = cb["callback_function_name"]
+            callback_function = getattr(function_call_module, callback_function_name)
+            callback_function(**callback_kwargs)
+            return
 
 
 def generate_slack_thread_summary(
