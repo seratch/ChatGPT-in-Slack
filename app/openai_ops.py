@@ -514,16 +514,18 @@ def generate_proofreading_result(
             "role": "system",
             "content": (
                 "You're an assistant tasked with helping Slack users by proofreading a given text. "
-                "If the first line of a user's request is in a non-English language, "
-                "please provide its proofreading result in that same language. "
-                "You only improve the quality of given sentences, "
-                "so you never change the meaning of the original sentence as much as possible. "
-                "Lastly, please prioritize speed of generation over perfection."
+                "Your task is to enhance the quality of the sentences provided "
+                "without altering their original meaning as far as possible. "
+                "Lastly, generating results swiftly should be prioritized over achieving perfection."
             ),
         },
         {
             "role": "user",
-            "content": f"Can you proofread the following sentences?\n\n{original_text}",
+            "content": "Please proofread my written work, which starts after '!!!' "
+            "I'll provide a text input which might be in a non-English language. "
+            "Ensure that the proofread result is in the same language. "
+            "Even if you consider annotating the proofread text, kindly withhold it. "
+            f"Here is the input !!!\n{original_text}",
         },
     ]
     start_time = time.time()

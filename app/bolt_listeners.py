@@ -781,6 +781,7 @@ def start_proofreading(client: WebClient, body: dict, payload: dict):
 def ack_proofreading_modal_submission(
     ack: Ack,
     payload: dict,
+    context: BoltContext,
 ):
     original_text = extract_state_value(payload, "original_text").get("value")
     text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
@@ -794,10 +795,19 @@ def ack_proofreading_modal_submission(
             "private_metadata": payload["private_metadata"],
             "blocks": [
                 {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Running OpenAI's *{context['OPENAI_MODEL']}* model:",
+                        },
+                    ],
+                },
+                {
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": f"{text}\n\nProofreading this now ... :hourglass:",
+                        "text": f"{text}\n\nProofreading your input now ... :hourglass:",
                     },
                 },
             ],
@@ -833,10 +843,32 @@ def display_proofreading_result(
                 "private_metadata": payload["private_metadata"],
                 "blocks": [
                     {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
+                            },
+                        ],
+                    },
+                    {
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
                             "text": f"{text}\n\n{result}",
+                        },
+                    },
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": " "},
+                        "accessory": {
+                            "type": "button",
+                            "text": {
+                                "type": "plain_text",
+                                "text": "Send this result in DM",
+                            },
+                            "value": "clicked",
+                            "action_id": "send-proofread-result-in-dm",
                         },
                     },
                 ],
@@ -879,7 +911,7 @@ def display_proofreading_result(
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"{text}\n\n:warning: My apologies!"
+                            "text": f"{text}\n\n:warning: My apologies! "
                             f"An error occurred while generating the summary of this thread: {e}",
                         },
                     },
@@ -894,6 +926,42 @@ def display_proofreading_modal_again(ack: Ack, payload):
         response_action="update",
         view=build_proofreading_input_modal(private_metadata["prompt"]),
     )
+
+
+def send_proofreading_result_in_dm(
+    body: dict,
+    client: WebClient,
+    context: BoltContext,
+    logger: logging.Logger,
+):
+    view = body["view"]
+    view_blocks = view["blocks"]
+    if view_blocks is None or len(view_blocks) == 0:
+        return
+    try:
+        result = view_blocks[1].get("text", {}).get("text")
+        if result is not None:
+            client.chat_postMessage(
+                channel=context.actor_user_id,
+                text=":wave: Here is the proofreading result:\n" + result,
+            )
+            # Remove the last block that displays the button
+            view_blocks.pop((len(view_blocks) - 1))
+            print(view_blocks)
+            client.views_update(
+                view_id=body["view"]["id"],
+                view={
+                    "type": "modal",
+                    "callback_id": "proofread-result",
+                    "title": {"type": "plain_text", "text": "Proofreading"},
+                    "submit": {"type": "plain_text", "text": "Try Another"},
+                    "close": {"type": "plain_text", "text": "Close"},
+                    "private_metadata": view["private_metadata"],
+                    "blocks": view_blocks,
+                },
+            )
+    except Exception as e:
+        logger.error(f"Failed to send a DM: {e}")
 
 
 #
@@ -1020,7 +1088,7 @@ def display_chat_from_scratch_result(
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": f"{text}\n\n:warning: My apologies!"
+                            "text": f"{text}\n\n:warning: My apologies! "
                             f"An error occurred while generating the summary of this thread: {e}",
                         },
                     },
@@ -1053,6 +1121,10 @@ def register_listeners(app: App):
         lazy=[display_proofreading_result],
     )
     app.view("proofread-result")(display_proofreading_modal_again)
+    app.action("send-proofread-result-in-dm")(
+        ack=just_ack,
+        lazy=[send_proofreading_result_in_dm],
+    )
 
     # Free format chat
     app.action("templates-from-scratch")(
