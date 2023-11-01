@@ -341,7 +341,9 @@ def respond_to_new_message(
                 {
                     "content": f"<@{msg_user_id}>: "
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
-                    "role": "user",
+                    "role": (
+                        "assistant" if reply["user"] == context.bot_user_id else "user"
+                    ),
                 }
             )
 
