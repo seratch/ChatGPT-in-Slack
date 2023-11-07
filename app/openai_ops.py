@@ -20,11 +20,13 @@ from app.openai_constants import (
     GPT_3_5_TURBO_MODEL,
     GPT_3_5_TURBO_0301_MODEL,
     GPT_3_5_TURBO_0613_MODEL,
+    GPT_3_5_TURBO_1106_MODEL,
     GPT_3_5_TURBO_16K_MODEL,
     GPT_3_5_TURBO_16K_0613_MODEL,
     GPT_4_MODEL,
     GPT_4_0314_MODEL,
     GPT_4_0613_MODEL,
+    GPT_4_1106_PREVIEW_MODEL,
     GPT_4_32K_MODEL,
     GPT_4_32K_0314_MODEL,
     GPT_4_32K_0613_MODEL,
@@ -300,12 +302,14 @@ def context_length(
         return context_length(model=GPT_4_32K_0613_MODEL)
     elif model == GPT_3_5_TURBO_0301_MODEL or model == GPT_3_5_TURBO_0613_MODEL:
         return 4096
-    elif model == GPT_3_5_TURBO_16K_0613_MODEL:
+    elif model == GPT_3_5_TURBO_16K_0613_MODEL or model == GPT_3_5_TURBO_1106_MODEL:
         return 16384
     elif model == GPT_4_0314_MODEL or model == GPT_4_0613_MODEL:
         return 8192
     elif model == GPT_4_32K_0314_MODEL or model == GPT_4_32K_0613_MODEL:
         return 32768
+    elif model == GPT_4_1106_PREVIEW_MODEL:
+        return 128000
     else:
         error = f"Calculating the length of the context window for model {model} is not yet supported."
         raise NotImplementedError(error)
@@ -324,10 +328,12 @@ def calculate_num_tokens(
     if model in {
         GPT_3_5_TURBO_0613_MODEL,
         GPT_3_5_TURBO_16K_0613_MODEL,
+        GPT_3_5_TURBO_1106_MODEL,
         GPT_4_0314_MODEL,
         GPT_4_32K_0314_MODEL,
         GPT_4_0613_MODEL,
         GPT_4_32K_0613_MODEL,
+        GPT_4_1106_PREVIEW_MODEL,
     }:
         tokens_per_message = 3
         tokens_per_name = 1
