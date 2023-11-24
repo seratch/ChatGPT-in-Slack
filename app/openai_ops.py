@@ -78,6 +78,9 @@ def messages_within_context_window(
         if not removed:
             # Fall through and let the OpenAI error handler deal with it
             break
+    else:
+        num_context_tokens = num_tokens
+
     return messages, num_context_tokens, max_context_tokens
 
 
