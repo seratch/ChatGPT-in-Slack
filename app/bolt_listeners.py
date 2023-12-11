@@ -104,11 +104,11 @@ def respond_to_app_mention(
                     {
                         "role": (
                             "assistant"
-                            if reply["user"] == context.bot_user_id
+                            if "user" in reply and reply["user"] == context.bot_user_id
                             else "user"
                         ),
                         "content": (
-                            f"<@{reply['user']}>: "
+                            f"<@{reply['user'] if 'user' in reply else reply['username']}>: "
                             + format_openai_message_content(
                                 reply_text, TRANSLATE_MARKDOWN
                             )
@@ -342,7 +342,7 @@ def respond_to_new_message(
                     "content": f"<@{msg_user_id}>: "
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                     "role": (
-                        "assistant" if reply["user"] == context.bot_user_id else "user"
+                        "assistant" if "user" in reply and reply["user"] == context.bot_user_id else "user"
                     ),
                 }
             )
