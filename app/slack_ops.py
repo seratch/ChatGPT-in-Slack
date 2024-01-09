@@ -31,7 +31,7 @@ def find_parent_message(
 
 def is_no_mention_thread(context: BoltContext, parent_message: dict) -> bool:
     parent_message_text = parent_message.get("text", "")
-    return f"<@{context.bot_user_id}>" in parent_message_text
+    return f"<@{context.bot_user_id}>" not in parent_message_text
 
 
 def build_thread_replies_as_combined_text(
