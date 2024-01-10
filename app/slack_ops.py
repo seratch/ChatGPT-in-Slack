@@ -29,7 +29,7 @@ def find_parent_message(
     return messages[0] if len(messages) > 0 else None
 
 
-def is_no_mention_thread(context: BoltContext, parent_message: dict) -> bool:
+def is_this_app_mentioned(context: BoltContext, parent_message: dict) -> bool:
     parent_message_text = parent_message.get("text", "")
     return f"<@{context.bot_user_id}>" in parent_message_text
 

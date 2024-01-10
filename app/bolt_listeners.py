@@ -27,7 +27,7 @@ from app.openai_ops import (
 )
 from app.slack_ops import (
     find_parent_message,
-    is_no_mention_thread,
+    is_this_app_mentioned,
     post_wip_message,
     update_wip_message,
     extract_state_value,
@@ -69,10 +69,11 @@ def respond_to_app_mention(
         parent_message = find_parent_message(
             client, context.channel_id, payload.get("thread_ts")
         )
-        if parent_message is not None:
-            if is_no_mention_thread(context, parent_message):
-                # The message event handler will reply to this
-                return
+        if parent_message is not None and is_this_app_mentioned(
+            context, parent_message
+        ):
+            # The message event handler will reply to this
+            return
 
     wip_reply = None
     # Replace placeholder for Slack user ID in the system prompt
@@ -234,7 +235,7 @@ def respond_to_new_message(
     wip_reply = None
     try:
         is_in_dm_with_bot = payload.get("channel_type") == "im"
-        is_no_mention_required = False
+        is_thread_for_this_app = False
         thread_ts = payload.get("thread_ts")
         if is_in_dm_with_bot is False and thread_ts is None:
             return
@@ -245,7 +246,7 @@ def respond_to_new_message(
 
         messages_in_context = []
         if is_in_dm_with_bot is True and thread_ts is None:
-            # In the DM with the bot
+            # In the DM with the bot; this is not within a thread
             past_messages = client.conversations_history(
                 channel=context.channel_id,
                 include_all_metadata=True,
@@ -257,9 +258,9 @@ def respond_to_new_message(
                 seconds = time.time() - float(message.get("ts"))
                 if seconds < 86400:  # less than 1 day
                     messages_in_context.append(message)
-            is_no_mention_required = True
+            is_thread_for_this_app = True
         else:
-            # In a thread with the bot in a channel
+            # Within a thread
             messages_in_context = client.conversations_replies(
                 channel=context.channel_id,
                 ts=thread_ts,
@@ -267,20 +268,22 @@ def respond_to_new_message(
                 limit=1000,
             ).get("messages", [])
             if is_in_dm_with_bot is True:
-                is_no_mention_required = True
+                # In the DM with this bot
+                is_thread_for_this_app = True
             else:
+                # In a channel
                 the_parent_message_found = False
                 for message in messages_in_context:
                     if message.get("ts") == thread_ts:
                         the_parent_message_found = True
-                        is_no_mention_required = is_no_mention_thread(context, message)
+                        is_thread_for_this_app = is_this_app_mentioned(context, message)
                         break
                 if the_parent_message_found is False:
                     parent_message = find_parent_message(
                         client, context.channel_id, thread_ts
                     )
                     if parent_message is not None:
-                        is_no_mention_required = is_no_mention_thread(
+                        is_thread_for_this_app = is_this_app_mentioned(
                             context, parent_message
                         )
 
@@ -310,7 +313,7 @@ def respond_to_new_message(
                     messages = maybe_new_messages
                     last_assistant_idx = idx
 
-        if is_no_mention_required is False:
+        if is_thread_for_this_app is False:
             return
 
         if is_in_dm_with_bot is True or last_assistant_idx == -1:
@@ -342,7 +345,9 @@ def respond_to_new_message(
                     "content": f"<@{msg_user_id}>: "
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                     "role": (
-                        "assistant" if "user" in reply and reply["user"] == context.bot_user_id else "user"
+                        "assistant"
+                        if "user" in reply and reply["user"] == context.bot_user_id
+                        else "user"
                     ),
                 }
             )
