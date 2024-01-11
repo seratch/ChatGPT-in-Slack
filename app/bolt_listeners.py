@@ -287,6 +287,9 @@ def respond_to_new_message(
                             context, parent_message
                         )
 
+        if is_thread_for_this_app is False:
+            return
+
         messages = []
         user_id = context.actor_user_id or context.user_id
         last_assistant_idx = -1
@@ -312,9 +315,6 @@ def respond_to_new_message(
                             user_id = new_user_id
                     messages = maybe_new_messages
                     last_assistant_idx = idx
-
-        if is_thread_for_this_app is False:
-            return
 
         if is_in_dm_with_bot is True or last_assistant_idx == -1:
             # To know whether this app needs to start a new convo
