@@ -24,8 +24,6 @@ oauth_config:
       - app_mentions:read
       - channels:history
       - groups:history
-      - im:history
-      - mpim:history
       - chat:write.public
       - chat:write
       - users:read
@@ -38,8 +36,6 @@ settings:
       - app_uninstalled
       - message.channels
       - message.groups
-      - message.im
-      - message.mpim
       - tokens_revoked
   interactivity:
     is_enabled: true

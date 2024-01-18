@@ -1,12 +1,12 @@
 display_information:
-  name: ChatGPT (dev)
+  name: ChatGPT Bot (OpenTechs)
 features:
   app_home:
     home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: false
   bot_user:
-    display_name: ChatGPT Bot (dev)
+    display_name: ChatGPT Bot (OpenTechs)
     always_online: true
   shortcuts:
     - name: Summarize this thread
@@ -20,8 +20,6 @@ oauth_config:
       - app_mentions:read
       - channels:history
       - groups:history
-      - im:history
-      - mpim:history
       - chat:write.public
       - chat:write
       - users:read
@@ -31,8 +29,6 @@ settings:
       - app_mention
       - message.channels
       - message.groups
-      - message.im
-      - message.mpim
   interactivity:
     is_enabled: true
   socket_mode_enabled: true

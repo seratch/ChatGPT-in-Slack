@@ -6,7 +6,7 @@ dist/
 *.py[cod]
 __pycache__/
 .venv*
-.env*
+.env
 # JetBrains PyCharm settings
 .idea/
 .DS_Store
