@@ -16,12 +16,7 @@ export OPENAI_TEMPERATURE=0.7
 # Optional: You can adjust the timeout seconds for OpenAI calls (default: 30)
 export OPENAI_TIMEOUT_SECONDS=300
 # Optional: You can include priming instructions for ChatGPT to fine tune the bot purpose
-export OPENAI_SYSTEM_TEXT="You are ChatGPT, a large language model trained by OpenAI, based on the GPT-4 architecture.
-Language: Japanese
-Knowledge cutoff: 2023-04
-Current date: 2023-10-21
-
-Image input capabilities: Enabled"
+export OPENAI_SYSTEM_TEXT="You are ChatGPT, a large language model trained by OpenAI, based on the GPT-4 architecture. Language: Japanese"
 # Optional: When the string is "true", this app translates ChatGPT prompts into a user's preferred language (default: true)
 export USE_SLACK_LANGUAGE=true
 # Optional: Adjust the app's logging level (default: DEBUG)
