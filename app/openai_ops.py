@@ -21,6 +21,7 @@ from app.openai_constants import (
     GPT_3_5_TURBO_0301_MODEL,
     GPT_3_5_TURBO_0613_MODEL,
     GPT_3_5_TURBO_1106_MODEL,
+    GPT_3_5_TURBO_0125_MODEL,
     GPT_3_5_TURBO_16K_MODEL,
     GPT_3_5_TURBO_16K_0613_MODEL,
     GPT_4_MODEL,
@@ -310,7 +311,11 @@ def context_length(
         return context_length(model=GPT_4_0125_PREVIEW_MODEL)
     elif model == GPT_3_5_TURBO_0301_MODEL or model == GPT_3_5_TURBO_0613_MODEL:
         return 4096
-    elif model == GPT_3_5_TURBO_16K_0613_MODEL or model == GPT_3_5_TURBO_1106_MODEL:
+    elif (
+        model == GPT_3_5_TURBO_16K_0613_MODEL
+        or model == GPT_3_5_TURBO_1106_MODEL
+        or model == GPT_3_5_TURBO_0125_MODEL
+    ):
         return 16384
     elif model == GPT_4_0314_MODEL or model == GPT_4_0613_MODEL:
         return 8192
@@ -337,6 +342,7 @@ def calculate_num_tokens(
         GPT_3_5_TURBO_0613_MODEL,
         GPT_3_5_TURBO_16K_0613_MODEL,
         GPT_3_5_TURBO_1106_MODEL,
+        GPT_3_5_TURBO_0125_MODEL,
         GPT_4_0314_MODEL,
         GPT_4_32K_0314_MODEL,
         GPT_4_0613_MODEL,
