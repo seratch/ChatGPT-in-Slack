@@ -297,8 +297,8 @@ def context_length(
     model: str,
 ) -> int:
     if model == GPT_3_5_TURBO_MODEL:
-        # Note that GPT_3_5_TURBO_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_0613_MODEL.
-        return context_length(model=GPT_3_5_TURBO_0613_MODEL)
+        # Note that GPT_3_5_TURBO_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_0125_MODEL.
+        return context_length(model=GPT_3_5_TURBO_0125_MODEL)
     if model == GPT_3_5_TURBO_16K_MODEL:
         # Note that GPT_3_5_TURBO_16K_MODEL may change over time. Return context length assuming GPT_3_5_TURBO_16K_0613_MODEL.
         return context_length(model=GPT_3_5_TURBO_16K_0613_MODEL)
@@ -369,8 +369,8 @@ def calculate_num_tokens(
         )
         tokens_per_name = -1  # if there's a name, the role is omitted
     elif model == GPT_3_5_TURBO_MODEL:
-        # Note that GPT_3_5_TURBO_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_0613_MODEL.
-        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_0613_MODEL)
+        # Note that GPT_3_5_TURBO_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_0125_MODEL.
+        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_0125_MODEL)
     elif model == GPT_3_5_TURBO_16K_MODEL:
         # Note that GPT_3_5_TURBO_16K_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_16K_0613_MODEL.
         return calculate_num_tokens(messages, model=GPT_3_5_TURBO_16K_0613_MODEL)
