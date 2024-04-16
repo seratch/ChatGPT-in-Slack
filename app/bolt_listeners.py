@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from typing import Optional
 
 from openai.error import Timeout
 from slack_bolt import App, Ack, BoltContext, BoltResponse
@@ -751,8 +752,26 @@ def prepare_and_share_thread_summary(
 #
 
 
-def build_proofreading_input_modal(prompt: str):
-    return {
+def build_proofreading_input_modal(prompt: str, tone_and_voice: Optional[str]):
+    tone_and_voice_options = [
+        {"text": {"type": "plain_text", "text": persona}, "value": persona}
+        for persona in [
+            "Friendly and humble individual in Slack",
+            "Software developer discussing issues on GitHub",
+            "Engaging yet insightful social media poster",
+            "Customer service representative handling inquiries",
+            "Marketing manager creating a product launch script",
+            "Technical writer documenting software procedures",
+            "Product manager creating a roadmap",
+            "HR manager composing a job description",
+            "Public relations officer drafting statements",
+            "Scientific researcher publicizing findings",
+            "Travel blogger sharing experiences",
+            "Speechwriter crafting a persuasive speech",
+        ]
+    ]
+
+    modal = {
         "type": "modal",
         "callback_id": "proofread",
         "title": {"type": "plain_text", "text": "Proofreading"},
@@ -774,14 +793,35 @@ def build_proofreading_input_modal(prompt: str):
                     "multiline": True,
                 },
             },
+            {
+                "type": "input",
+                "block_id": "tone_and_voice",
+                "label": {"type": "plain_text", "text": "Tone and voice"},
+                "element": {
+                    "type": "static_select",
+                    "action_id": "input",
+                    "options": tone_and_voice_options,
+                },
+                "optional": True,
+            },
         ],
     }
+    if tone_and_voice is not None:
+        selected_option = {
+            "text": {"type": "plain_text", "text": tone_and_voice},
+            "value": tone_and_voice,
+        }
+        modal["blocks"][2]["element"]["initial_option"] = selected_option
+    else:
+        first_option = modal["blocks"][2]["element"]["options"][0]
+        modal["blocks"][2]["element"]["initial_option"] = first_option
+    return modal
 
 
 def start_proofreading(client: WebClient, body: dict, payload: dict):
     client.views_open(
         trigger_id=body.get("trigger_id"),
-        view=build_proofreading_input_modal(payload.get("value")),
+        view=build_proofreading_input_modal(payload.get("value"), None),
     )
 
 
@@ -792,33 +832,34 @@ def ack_proofreading_modal_submission(
 ):
     original_text = extract_state_value(payload, "original_text").get("value")
     text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
+    modal_view = {
+        "type": "modal",
+        "callback_id": "proofread",
+        "title": {"type": "plain_text", "text": "Proofreading"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "private_metadata": payload["private_metadata"],
+        "blocks": [
+            {
+                "type": "context",
+                "elements": [
+                    {
+                        "type": "mrkdwn",
+                        "text": f"Running OpenAI's *{context['OPENAI_MODEL']}* model:",
+                    },
+                ],
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f"{text}\n\nProofreading your input now ... :hourglass:",
+                },
+            },
+        ],
+    }
     ack(
         response_action="update",
-        view={
-            "type": "modal",
-            "callback_id": "proofread",
-            "title": {"type": "plain_text", "text": "Proofreading"},
-            "close": {"type": "plain_text", "text": "Close"},
-            "private_metadata": payload["private_metadata"],
-            "blocks": [
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"Running OpenAI's *{context['OPENAI_MODEL']}* model:",
-                        },
-                    ],
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"{text}\n\nProofreading your input now ... :hourglass:",
-                    },
-                },
-            ],
-        },
+        view=modal_view,
     )
 
 
@@ -832,55 +873,82 @@ def display_proofreading_result(
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
         original_text = extract_state_value(payload, "original_text").get("value")
+        tone_and_voice = extract_state_value(payload, "tone_and_voice")
+        tone_and_voice = (
+            tone_and_voice.get("selected_option").get("value")
+            if tone_and_voice.get("selected_option")
+            else None
+        )
         text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
         result = generate_proofreading_result(
             context=context,
             logger=logger,
             openai_api_key=openai_api_key,
             original_text=original_text,
+            tone_and_voice=tone_and_voice,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
+        private_metadata = payload["private_metadata"]
+        if tone_and_voice is not None:
+            pm = json.loads(payload["private_metadata"])
+            pm["tone_and_voice"] = tone_and_voice
+            private_metadata = json.dumps(pm)
+
+        modal_view = {
+            "type": "modal",
+            "callback_id": "proofread-result",
+            "title": {"type": "plain_text", "text": "Proofreading"},
+            "submit": {"type": "plain_text", "text": "Try Another"},
+            "close": {"type": "plain_text", "text": "Close"},
+            "private_metadata": private_metadata,
+            "blocks": [
+                {
+                    "type": "context",
+                    "elements": [
+                        {
+                            "type": "mrkdwn",
+                            "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
+                        },
+                    ],
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"{text}\n\n{result}",
+                    },
+                },
+            ],
+        }
+        if tone_and_voice is not None:
+            modal_view["blocks"].append(
+                {
+                    "type": "context",
+                    "elements": [
+                        {"type": "mrkdwn", "text": f"Tone and voice: {tone_and_voice}"}
+                    ],
+                }
+            )
+
+        modal_view["blocks"].append(
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": " "},
+                "accessory": {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Send this result in DM",
+                    },
+                    "value": "clicked",
+                    "action_id": "send-proofread-result-in-dm",
+                },
+            }
+        )
+
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "proofread-result",
-                "title": {"type": "plain_text", "text": "Proofreading"},
-                "submit": {"type": "plain_text", "text": "Try Another"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "private_metadata": payload["private_metadata"],
-                "blocks": [
-                    {
-                        "type": "context",
-                        "elements": [
-                            {
-                                "type": "mrkdwn",
-                                "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
-                            },
-                        ],
-                    },
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{text}\n\n{result}",
-                        },
-                    },
-                    {
-                        "type": "section",
-                        "text": {"type": "mrkdwn", "text": " "},
-                        "accessory": {
-                            "type": "button",
-                            "text": {
-                                "type": "plain_text",
-                                "text": "Send this result in DM",
-                            },
-                            "value": "clicked",
-                            "action_id": "send-proofread-result-in-dm",
-                        },
-                    },
-                ],
-            },
+            view=modal_view,
         )
     except Timeout:
         client.views_update(
@@ -904,7 +972,7 @@ def display_proofreading_result(
             },
         )
     except Exception as e:
-        logger.error(f"Failed to share a thread summary: {e}")
+        logger.exception(f"Failed to share a proofreading result: {e}")
         client.views_update(
             view_id=payload["id"],
             view={
@@ -932,7 +1000,9 @@ def display_proofreading_modal_again(ack: Ack, payload):
     private_metadata = json.loads(payload["private_metadata"])
     ack(
         response_action="update",
-        view=build_proofreading_input_modal(private_metadata["prompt"]),
+        view=build_proofreading_input_modal(
+            private_metadata["prompt"], private_metadata.get("tone_and_voice")
+        ),
     )
 
 

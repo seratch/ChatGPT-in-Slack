@@ -544,17 +544,24 @@ def generate_proofreading_result(
     logger: logging.Logger,
     openai_api_key: str,
     original_text: str,
+    tone_and_voice: Optional[str] = None,
     timeout_seconds: int,
 ) -> str:
+    system_content = (
+        "You're an assistant tasked with helping Slack users by proofreading a given text. "
+        "Your task is to enhance the quality of the sentences provided "
+        "without altering their original meaning as far as possible. "
+    )
+    if tone_and_voice is not None:
+        system_content += (
+            f"The generated output must be a suitable one for {tone_and_voice}. "
+        )
+    system_content += "Lastly, generating results swiftly should be prioritized over achieving perfection."
+
     messages = [
         {
             "role": "system",
-            "content": (
-                "You're an assistant tasked with helping Slack users by proofreading a given text. "
-                "Your task is to enhance the quality of the sentences provided "
-                "without altering their original meaning as far as possible. "
-                "Lastly, generating results swiftly should be prioritized over achieving perfection."
-            ),
+            "content": system_content,
         },
         {
             "role": "user",
