@@ -23,7 +23,7 @@ def find_parent_message(
         channel=channel_id,
         latest=thread_ts,
         limit=1,
-        inclusive=1,
+        inclusive=True,
     ).get("messages", [])
 
     return messages[0] if len(messages) > 0 else None

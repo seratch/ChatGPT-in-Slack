@@ -12,7 +12,7 @@ from openai.openai_object import OpenAIObject
 import tiktoken
 
 from slack_bolt import BoltContext
-from slack_sdk.web import WebClient
+from slack_sdk.web import WebClient, SlackResponse
 
 from app.markdown import slack_to_markdown, markdown_to_slack
 from app.openai_constants import (
@@ -46,7 +46,9 @@ _prompt_tokens_used_by_function_call_cache: Optional[int] = None
 
 
 # Format message from Slack to send to OpenAI
-def format_openai_message_content(content: str, translate_markdown: bool) -> str:
+def format_openai_message_content(
+    content: str, translate_markdown: bool
+) -> Optional[str]:
     if content is None:
         return None
 
@@ -163,7 +165,7 @@ def start_receiving_openai_response(
 def consume_openai_stream_to_write_reply(
     *,
     client: WebClient,
-    wip_reply: dict,
+    wip_reply: Union[dict, SlackResponse],
     context: BoltContext,
     user_id: str,
     messages: List[Dict[str, Union[str, Dict[str, str]]]],

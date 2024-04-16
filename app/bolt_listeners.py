@@ -232,16 +232,16 @@ def respond_to_new_message(
         # Skip a new message by a different app
         return
 
+    openai_api_key = context.get("OPENAI_API_KEY")
+    if openai_api_key is None:
+        return
+
     wip_reply = None
     try:
         is_in_dm_with_bot = payload.get("channel_type") == "im"
         is_thread_for_this_app = False
         thread_ts = payload.get("thread_ts")
         if is_in_dm_with_bot is False and thread_ts is None:
-            return
-
-        openai_api_key = context.get("OPENAI_API_KEY")
-        if openai_api_key is None:
             return
 
         messages_in_context = []
@@ -828,6 +828,7 @@ def display_proofreading_result(
     logger: logging.Logger,
     payload: dict,
 ):
+    text = ""
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
         original_text = extract_state_value(payload, "original_text").get("value")
@@ -1033,6 +1034,7 @@ def display_chat_from_scratch_result(
     logger: logging.Logger,
     payload: dict,
 ):
+    text = ""
     openai_api_key = context.get("OPENAI_API_KEY")
     try:
         prompt = extract_state_value(payload, "prompt").get("value")
