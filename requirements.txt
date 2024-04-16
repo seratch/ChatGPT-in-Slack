@@ -1,6 +1,7 @@
-slack-bolt>=1.18.0,<2
-slack-sdk>=3.23.0,<4
-openai>=0.28.1,<0.29
-tiktoken>=0.5.1,<0.6
+slack-bolt>=1.18.1,<2
+slack-sdk>=3.27.1,<4
+# TODO: migrate to 1.x https://github.com/seratch/ChatGPT-in-Slack/issues/80
+openai==0.28.1
+tiktoken>=0.6,<0.7
 # https://github.com/Yelp/elastalert/issues/2306
 urllib3<2
