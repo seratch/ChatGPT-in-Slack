@@ -1,4 +1,6 @@
 # Unzip the dependencies managed by serverless-python-requirements
+from app.openai_constants import GPT_3_5_TURBO_MODEL, GPT_4_MODEL, GPT_4_32K_MODEL, GPT_4O_MODEL
+
 try:
     import unzip_requirements  # type:ignore
 except ImportError:
@@ -237,15 +239,19 @@ def handler(event, context_):
                                         "type": "plain_text",
                                         "text": "GPT-3.5 Turbo",
                                     },
-                                    "value": "gpt-3.5-turbo",
+                                    "value": GPT_3_5_TURBO_MODEL,
                                 },
                                 {
                                     "text": {"type": "plain_text", "text": "GPT-4 8K"},
-                                    "value": "gpt-4",
+                                    "value": GPT_4_MODEL,
                                 },
                                 {
                                     "text": {"type": "plain_text", "text": "GPT-4 32K"},
-                                    "value": "gpt-4-32k",
+                                    "value": GPT_4_32K_MODEL,
+                                },
+                                {
+                                    "text": {"type": "plain_text", "text": "GPT-4o"},
+                                    "value": GPT_4O_MODEL,
                                 },
                             ],
                             "initial_option": {
@@ -253,7 +259,7 @@ def handler(event, context_):
                                     "type": "plain_text",
                                     "text": "GPT-3.5 Turbo",
                                 },
-                                "value": "gpt-3.5-turbo",
+                                "value": GPT_3_5_TURBO_MODEL,
                             },
                         },
                     },
