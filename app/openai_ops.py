@@ -35,6 +35,8 @@ from app.openai_constants import (
     GPT_4_32K_MODEL,
     GPT_4_32K_0314_MODEL,
     GPT_4_32K_0613_MODEL,
+    GPT_4O_MODEL,
+    GPT_4O_2024_05_13_MODEL,
 )
 from app.slack_ops import update_wip_message
 
@@ -314,6 +316,9 @@ def context_length(
     elif model == GPT_4_TURBO_MODEL:
         # Note that GPT_4_TURBO_MODEL may change over time. Return context length assuming GPT_4_TURBO_2024_04_09_MODEL.
         return context_length(model=GPT_4_TURBO_2024_04_09_MODEL)
+    elif model == GPT_4O_MODEL:
+        # Note that GPT_4O_MODEL may change over time. Return context length assuming GPT_4O_2024_05_13_MODEL.
+        return context_length(model=GPT_4O_2024_05_13_MODEL)
     elif model == GPT_3_5_TURBO_0301_MODEL or model == GPT_3_5_TURBO_0613_MODEL:
         return 4096
     elif (
@@ -330,6 +335,7 @@ def context_length(
         model == GPT_4_1106_PREVIEW_MODEL
         or model == GPT_4_0125_PREVIEW_MODEL
         or model == GPT_4_TURBO_2024_04_09_MODEL
+        or model == GPT_4O_2024_05_13_MODEL
     ):
         return 128000
     else:
@@ -360,6 +366,7 @@ def calculate_num_tokens(
         GPT_4_0125_PREVIEW_MODEL,
         GPT_4_TURBO_PREVIEW_MODEL,
         GPT_4_TURBO_2024_04_09_MODEL,
+        GPT_4O_2024_05_13_MODEL,
     }:
         tokens_per_message = 3
         tokens_per_name = 1
@@ -383,6 +390,9 @@ def calculate_num_tokens(
     elif model == GPT_4_32K_MODEL:
         # Note that GPT_4_32K_MODEL may change over time. Return num tokens assuming GPT_4_32K_0613_MODEL.
         return calculate_num_tokens(messages, model=GPT_4_32K_0613_MODEL)
+    elif model == GPT_4O_MODEL:
+        # Note that GPT_4O_MODEL may change over time. Return num tokens assuming GPT_4O_2024_05_13_MODEL.
+        return calculate_num_tokens(messages, model=GPT_4O_2024_05_13_MODEL)
     else:
         error = (
             f"Calculating the number of tokens for model {model} is not yet supported. "
