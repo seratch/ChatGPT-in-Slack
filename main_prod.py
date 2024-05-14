@@ -1,6 +1,4 @@
 # Unzip the dependencies managed by serverless-python-requirements
-from app.openai_constants import GPT_3_5_TURBO_MODEL, GPT_4_MODEL, GPT_4_32K_MODEL, GPT_4O_MODEL
-
 try:
     import unzip_requirements  # type:ignore
 except ImportError:
@@ -35,6 +33,12 @@ from app.env import (
 from app.slack_ops import (
     build_home_tab,
     DEFAULT_HOME_TAB_MESSAGE,
+)
+from app.openai_constants import (
+    GPT_3_5_TURBO_MODEL,
+    GPT_4_MODEL,
+    GPT_4_32K_MODEL,
+    GPT_4O_MODEL,
 )
 from app.i18n import translate
 
