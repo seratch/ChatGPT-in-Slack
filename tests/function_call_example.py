@@ -29,3 +29,27 @@ functions = [
         },
     }
 ]
+
+
+def before_get_current_weather(*, messages):
+    print("before_get_current_weather called")
+
+
+def after_get_current_weather(*, function_response, messages):
+    print("after_get_current_weather called")
+
+
+function_callbacks = [
+    {
+        "function_name": "get_current_weather",
+        "callback_type": "before",
+        "callback_function_name": "before_get_current_weather",
+        # parameters: messages
+    },
+    {
+        "function_name": "get_current_weather",
+        "callback_type": "after",
+        "callback_function_name": "after_get_current_weather",
+        # parameters: function_response, messages
+    },
+]
