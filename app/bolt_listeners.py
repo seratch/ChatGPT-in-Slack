@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import time
 from typing import Optional
@@ -35,7 +36,7 @@ from app.slack_ops import (
     build_thread_replies_as_combined_text,
 )
 
-from app.utils import redact_string
+from app.utils import download_and_encode_image, redact_string
 
 #
 # Listener functions
@@ -66,9 +67,11 @@ def respond_to_app_mention(
     client: WebClient,
     logger: logging.Logger,
 ):
-    if payload.get("thread_ts") is not None:
+    logger.info(f"Received an app mention: {payload}")
+    thread_ts = payload.get("thread_ts")
+    if thread_ts is not None:
         parent_message = find_parent_message(
-            client, context.channel_id, payload.get("thread_ts")
+            client, context.channel_id, thread_ts
         )
         if parent_message is not None and is_this_app_mentioned(
             context, parent_message
@@ -91,44 +94,58 @@ def respond_to_app_mention(
             return
 
         user_id = context.actor_user_id or context.user_id
-
-        if payload.get("thread_ts") is not None:
+        if thread_ts is not None:
             # Mentioning the bot user in a thread
             replies_in_thread = client.conversations_replies(
                 channel=context.channel_id,
-                ts=payload.get("thread_ts"),
+                ts=thread_ts,
                 include_all_metadata=True,
                 limit=1000,
             ).get("messages", [])
             for reply in replies_in_thread:
                 reply_text = redact_string(reply.get("text"))
-                messages.append(
+                content = [
                     {
-                        "role": (
-                            "assistant"
-                            if "user" in reply and reply["user"] == context.bot_user_id
-                            else "user"
-                        ),
-                        "content": (
-                            f"<@{reply['user'] if 'user' in reply else reply['username']}>: "
-                            + format_openai_message_content(
-                                reply_text, TRANSLATE_MARKDOWN
-                            )
-                        ),
+                        "type": "text",
+                        "text": f"<@{reply['user'] if 'user' in reply else reply['username']}>: "
+                        + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN)
                     }
-                )
+                ]
+
+                # Add images if any
+                files = reply.get(files)
+                if files:
+                    append_image_content(files, content)
+
+                    messages.append(
+                        {
+                            "role": "assistant" if "user" in reply and reply["user"] == context.bot_user_id else "user",
+                            "content": content,
+                        }
+                    )
         else:
             # Strip bot Slack user ID from initial message
             msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
             msg_text = redact_string(msg_text)
+            text_item = {
+                "type": "text",
+                "text": f"<@{user_id}>: "
+                    + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
+            }
+            content = [text_item]
+            # also add images in the message, the content will be a json object. will have both text and image_url type
+            files = payload.get("files")
+            if files:
+                append_image_content(files, content)
+
             messages.append(
                 {
                     "role": "user",
-                    "content": f"<@{user_id}>: "
-                    + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
+                    "content": content
                 }
             )
 
+        logger.debug(f"Messages: {messages}")
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
@@ -222,6 +239,21 @@ def respond_to_app_mention(
                 text=text,
             )
 
+def append_image_content(files, content):
+    for file in files:
+        mime_type = file.get("mimetype")
+        if mime_type and mime_type.startswith("image"):
+            encoded_image, image_format = download_and_encode_image(file.get("url_private"), os.environ["SLACK_BOT_TOKEN"])
+            if image_format.lower() in ["jpeg", "png", "gif"]:
+                image_item = {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{encoded_image}"
+                    }
+                }
+                content.append(image_item)
+            else:
+                logger.debug(f'Image format {image_format} is not supported')
 
 def respond_to_new_message(
     context: BoltContext,
@@ -245,6 +277,7 @@ def respond_to_new_message(
         if is_in_dm_with_bot is False and thread_ts is None:
             return
 
+        logger.debug(f"Received an new message: {payload}")
         messages_in_context = []
         if is_in_dm_with_bot is True and thread_ts is None:
             # In the DM with the bot; this is not within a thread
@@ -341,10 +374,19 @@ def respond_to_new_message(
         for reply in filtered_messages_in_context:
             msg_user_id = reply.get("user")
             reply_text = redact_string(reply.get("text"))
+            content = [
+                {
+                    "type": "text",
+                    "text": f"<@{msg_user_id}>: "
+                    + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
+                }
+            ]
+            files = reply.get("files")
+            if files:
+                append_image_content(files, content)
             messages.append(
                 {
-                    "content": f"<@{msg_user_id}>: "
-                    + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
+                    "content": content,
                     "role": (
                         "assistant"
                         if "user" in reply and reply["user"] == context.bot_user_id
