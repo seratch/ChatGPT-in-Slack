@@ -130,7 +130,7 @@ def make_synchronous_openai_call(
         logit_bias={},
         user=user,
         stream=False,
-        request_timeout=timeout_seconds,
+        timeout=timeout_seconds,
     )
 
 
