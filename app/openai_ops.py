@@ -3,12 +3,12 @@ import threading
 import time
 import re
 import json
-from typing import List, Dict, Any, Generator, Tuple, Optional, Union
+from typing import List, Dict, Any, Tuple, Optional, Union
 from importlib import import_module
 
-import openai
-from openai.error import Timeout
-from openai.openai_object import OpenAIObject
+from openai import OpenAI, AzureOpenAI
+from openai.types import Completion
+from openai._streaming import Stream
 import tiktoken
 
 from slack_bolt import BoltContext
@@ -105,9 +105,20 @@ def make_synchronous_openai_call(
     openai_api_version: str,
     openai_deployment_id: str,
     timeout_seconds: int,
-) -> OpenAIObject:
-    return openai.ChatCompletion.create(
-        api_key=openai_api_key,
+) -> Completion:
+    if openai_api_type == "azure":
+        client = AzureOpenAI(
+            api_key=openai_api_key,
+            api_version=openai_api_version,
+            azure_endpoint=openai_api_base,
+            azure_deployment=openai_deployment_id,
+        )
+    else:
+        client = OpenAI(
+            api_key=openai_api_key,
+            base_url=openai_api_base,
+        )
+    return client.chat.completions.create(
         model=model,
         messages=messages,
         top_p=1,
@@ -119,10 +130,6 @@ def make_synchronous_openai_call(
         logit_bias={},
         user=user,
         stream=False,
-        api_type=openai_api_type,
-        api_base=openai_api_base,
-        api_version=openai_api_version,
-        deployment_id=openai_deployment_id,
         request_timeout=timeout_seconds,
     )
 
@@ -139,12 +146,23 @@ def start_receiving_openai_response(
     openai_api_version: str,
     openai_deployment_id: str,
     function_call_module_name: Optional[str],
-) -> Generator[OpenAIObject, Any, None]:
+) -> Stream[Completion]:
     kwargs = {}
     if function_call_module_name is not None:
         kwargs["functions"] = import_module(function_call_module_name).functions
-    return openai.ChatCompletion.create(
-        api_key=openai_api_key,
+    if openai_api_type == "azure":
+        client = AzureOpenAI(
+            api_key=openai_api_key,
+            api_version=openai_api_version,
+            azure_endpoint=openai_api_base,
+            azure_deployment=openai_deployment_id,
+        )
+    else:
+        client = OpenAI(
+            api_key=openai_api_key,
+            base_url=openai_api_base,
+        )
+    return client.chat.completions.create(
         model=model,
         messages=messages,
         top_p=1,
@@ -156,10 +174,6 @@ def start_receiving_openai_response(
         logit_bias={},
         user=user,
         stream=True,
-        api_type=openai_api_type,
-        api_base=openai_api_base,
-        api_version=openai_api_version,
-        deployment_id=openai_deployment_id,
         **kwargs,
     )
 
@@ -171,7 +185,7 @@ def consume_openai_stream_to_write_reply(
     context: BoltContext,
     user_id: str,
     messages: List[Dict[str, Union[str, Dict[str, str]]]],
-    stream: Generator[OpenAIObject, Any, None],
+    stream: Stream[Completion],
     timeout_seconds: int,
     translate_markdown: bool,
 ):
@@ -189,11 +203,11 @@ def consume_openai_stream_to_write_reply(
         for chunk in stream:
             spent_seconds = time.time() - start_time
             if timeout_seconds < spent_seconds:
-                raise Timeout()
+                raise TimeoutError()
             # Some versions of the Azure OpenAI API return an empty choices array in the first chunk
             if context.get("OPENAI_API_TYPE") == "azure" and not chunk.choices:
                 continue
-            item = chunk.choices[0]
+            item = chunk.choices[0].model_dump()
             if item.get("finish_reason") is not None:
                 break
             delta = item.get("delta")
@@ -225,7 +239,7 @@ def consume_openai_stream_to_write_reply(
                 # Ignore function call suggestions after content has been received
                 if assistant_reply["content"] == "":
                     for k in function_call.keys():
-                        function_call[k] += delta["function_call"].get(k, "")
+                        function_call[k] += delta["function_call"].get(k) or ""
                     assistant_reply["function_call"] = function_call
 
         for t in threads:
@@ -483,18 +497,25 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
         return _prompt_tokens_used_by_function_call_cache
 
     def _calculate_prompt_tokens(functions) -> int:
-        return openai.ChatCompletion.create(
-            api_key=context.get("OPENAI_API_KEY"),
+        if context.get("OPENAI_API_TYPE") == "azure":
+            client = AzureOpenAI(
+                api_key=context.get("OPENAI_API_KEY"),
+                api_version=context.get("OPENAI_API_VERSION"),
+                azure_endpoint=context.get("OPENAI_API_BASE"),
+                azure_deployment=context.get("OPENAI_DEPLOYMENT_ID"),
+            )
+        else:
+            client = OpenAI(
+                api_key=context.get("OPENAI_API_KEY"),
+                base_url=context.get("OPENAI_API_BASE"),
+            )
+        return client.chat.completions.create(
             model=context.get("OPENAI_MODEL"),
             messages=[{"role": "user", "content": "hello"}],
             max_tokens=1024,
             user="system",
-            api_type=context.get("OPENAI_API_TYPE"),
-            api_base=context.get("OPENAI_API_BASE"),
-            api_version=context.get("OPENAI_API_VERSION"),
-            deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
             **({"functions": functions} if functions is not None else {}),
-        )["usage"]["prompt_tokens"]
+        ).model_dump()["usage"]["prompt_tokens"]
 
     # TODO: If there is a better way to calculate this, replace the logic with it
     module = import_module(function_call_module_name)
@@ -545,7 +566,7 @@ def generate_slack_thread_summary(
     )
     spent_time = time.time() - start_time
     logger.debug(f"Making a summary took {spent_time} seconds")
-    return openai_response["choices"][0]["message"]["content"]
+    return openai_response.model_dump()["choices"][0]["message"]["content"]
 
 
 def generate_proofreading_result(
@@ -597,7 +618,7 @@ def generate_proofreading_result(
     )
     spent_time = time.time() - start_time
     logger.debug(f"Proofreading took {spent_time} seconds")
-    return openai_response["choices"][0]["message"]["content"]
+    return openai_response.model_dump()["choices"][0]["message"]["content"]
 
 
 def generate_chatgpt_response(
@@ -635,4 +656,4 @@ def generate_chatgpt_response(
     )
     spent_time = time.time() - start_time
     logger.debug(f"Proofreading took {spent_time} seconds")
-    return openai_response["choices"][0]["message"]["content"]
+    return openai_response.model_dump()["choices"][0]["message"]["content"]

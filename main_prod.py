@@ -11,7 +11,7 @@ except ImportError:
 import json
 import logging
 import os
-import openai
+from openai import OpenAI
 
 from slack_sdk.web import WebClient
 from slack_sdk.errors import SlackApiError
@@ -279,10 +279,11 @@ def handler(event, context_):
         model = inputs["model"]["input"]["selected_option"]["value"]
         try:
             # Verify if the API key is valid
-            openai.Model.retrieve(api_key=api_key, id="gpt-3.5-turbo")
+            client = OpenAI(api_key=api_key)
+            client.models.retrieve(model="gpt-3.5-turbo")
             try:
                 # Verify if the given model works with the API key
-                openai.Model.retrieve(api_key=api_key, id=model)
+                client.models.retrieve(model=model)
             except Exception:
                 text = "This model is not yet available for this API key"
                 if already_set_api_key is not None:
@@ -315,7 +316,8 @@ def handler(event, context_):
         api_key = inputs["api_key"]["input"]["value"]
         model = inputs["model"]["input"]["selected_option"]["value"]
         try:
-            openai.Model.retrieve(api_key=api_key, id=model)
+            client = OpenAI(api_key=api_key)
+            client.models.retrieve(model=model)
             s3_client.put_object(
                 Bucket=openai_bucket_name,
                 Key=context.team_id,
