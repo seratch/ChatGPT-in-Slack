@@ -37,6 +37,8 @@ from app.openai_constants import (
     GPT_4_32K_0613_MODEL,
     GPT_4O_MODEL,
     GPT_4O_2024_05_13_MODEL,
+    MODEL_SPECIFIC_TOKENS,
+    MODEL_FALLBACKS,
 )
 from app.slack_ops import update_wip_message
 
@@ -359,76 +361,76 @@ def context_length(
         raise NotImplementedError(error)
 
 
+def _get_encoding_for_model(model: str):
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        return tiktoken.get_encoding("cl100k_base")
+
+
+def _get_tokens_per_message(model: str):
+    return MODEL_SPECIFIC_TOKENS.get(model, None)
+
+
+def _handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[str, str]]]]):
+    if model in MODEL_FALLBACKS:
+        return calculate_num_tokens(messages, model=MODEL_FALLBACKS[model])
+    return None
+
+
+def _raise_not_supported_error(model: str):
+    error = (
+        f"Calculating the number of tokens for model {model} is not yet supported. "
+        "See https://github.com/openai/openai-python/blob/main/chatml.md "
+        "for information on how messages are converted to tokens."
+    )
+    raise NotImplementedError(error)
+
+
+def _encode_and_count_tokens(value: Union[str, List[Dict[str, Union[str, Dict[str, str]]]], Dict[str, str]], encoding: tiktoken.Encoding):
+    if isinstance(value, str):
+        return len(encoding.encode(value))
+    elif isinstance(value, list):
+        return sum(_encode_and_count_tokens(item, encoding) for item in value)
+    elif isinstance(value, dict):
+        return sum(_encode_and_count_tokens(v, encoding) for k, v in value.items() if k != 'image_url')
+    return 0
+
+
 # Adapted from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def calculate_num_tokens(
     messages: List[Dict[str, Union[str, Dict[str, str]]]],
-    model: str = GPT_3_5_TURBO_0613_MODEL,
+    model: str = GPT_3_5_TURBO_0613_MODEL
 ) -> int:
     """Returns the number of tokens used by a list of messages."""
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
-    if model in {
-        GPT_3_5_TURBO_0613_MODEL,
-        GPT_3_5_TURBO_16K_0613_MODEL,
-        GPT_3_5_TURBO_1106_MODEL,
-        GPT_3_5_TURBO_0125_MODEL,
-        GPT_4_0314_MODEL,
-        GPT_4_32K_0314_MODEL,
-        GPT_4_0613_MODEL,
-        GPT_4_32K_0613_MODEL,
-        GPT_4_1106_PREVIEW_MODEL,
-        GPT_4_0125_PREVIEW_MODEL,
-        GPT_4_TURBO_PREVIEW_MODEL,
-        GPT_4_TURBO_2024_04_09_MODEL,
-        GPT_4O_2024_05_13_MODEL,
-    }:
-        tokens_per_message = 3
-        tokens_per_name = 1
-    elif model == GPT_3_5_TURBO_0301_MODEL:
-        tokens_per_message = (
-            4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
-        )
-        tokens_per_name = -1  # if there's a name, the role is omitted
-    elif model == GPT_3_5_TURBO_MODEL:
-        # Note that GPT_3_5_TURBO_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_0125_MODEL.
-        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_0125_MODEL)
-    elif model == GPT_3_5_TURBO_16K_MODEL:
-        # Note that GPT_3_5_TURBO_16K_MODEL may change over time. Return num tokens assuming GPT_3_5_TURBO_16K_0613_MODEL.
-        return calculate_num_tokens(messages, model=GPT_3_5_TURBO_16K_0613_MODEL)
-    elif model == GPT_4_MODEL:
-        # Note that GPT_4_MODEL may change over time. Return num tokens assuming GPT_4_0613_MODEL.
-        return calculate_num_tokens(messages, model=GPT_4_0613_MODEL)
-    elif model == GPT_4_TURBO_MODEL:
-        # Note that GPT_4_TURBO_MODEL may change over time. Return num tokens assuming GPT_4_TURBO_2024_04_09_MODEL.
-        return calculate_num_tokens(messages, model=GPT_4_TURBO_2024_04_09_MODEL)
-    elif model == GPT_4_32K_MODEL:
-        # Note that GPT_4_32K_MODEL may change over time. Return num tokens assuming GPT_4_32K_0613_MODEL.
-        return calculate_num_tokens(messages, model=GPT_4_32K_0613_MODEL)
-    elif model == GPT_4O_MODEL:
-        # Note that GPT_4O_MODEL may change over time. Return num tokens assuming GPT_4O_2024_05_13_MODEL.
-        return calculate_num_tokens(messages, model=GPT_4O_2024_05_13_MODEL)
-    else:
-        error = (
-            f"Calculating the number of tokens for model {model} is not yet supported. "
-            "See https://github.com/openai/openai-python/blob/main/chatml.md "
-            "for information on how messages are converted to tokens."
-        )
-        raise NotImplementedError(error)
+    encoding = _get_encoding_for_model(model)
     num_tokens = 0
+
+    # Handle model-specific tokens per message and name
+    token_numbers = _get_tokens_per_message(model)
+    if token_numbers is None:
+        fallback_result = _handle_fallback_models(model, messages)
+        if fallback_result is not None:
+            return fallback_result
+        _raise_not_supported_error(model)
+
+    tokens_per_message, tokens_per_name = token_numbers
+
     for message in messages:
         num_tokens += tokens_per_message
         for key, value in message.items():
             if key == "function_call":
-                num_tokens += 1
-                num_tokens += len(encoding.encode(value["name"]))
-                num_tokens += len(encoding.encode(value["arguments"]))
+                num_tokens += (
+                    1 + len(encoding.encode(value["name"]))
+                    + len(encoding.encode(value["arguments"]))
+                )
             else:
-                num_tokens += len(encoding.encode(value))
+                num_tokens += _encode_and_count_tokens(value, encoding)
             if key == "name":
                 num_tokens += tokens_per_name
-    num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+
+    num_tokens += 3  # every reply is primed with <|im_start|>assistant<|im_sep|>
+
     return num_tokens
 
 
