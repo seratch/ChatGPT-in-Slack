@@ -145,7 +145,6 @@ def respond_to_app_mention(
                 }
             )
 
-        logger.debug(f"Messages: {messages}")
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
