@@ -37,6 +37,7 @@ from app.openai_constants import (
     GPT_4_32K_0613_MODEL,
     GPT_4O_MODEL,
     GPT_4O_2024_05_13_MODEL,
+    MODEL_SPECIFIC_TOKENS,
 )
 from app.slack_ops import update_wip_message
 
@@ -367,23 +368,7 @@ def get_encoding_for_model(model: str):
 
 
 def get_tokens_per_message(model: str):
-    model_specific_tokens = {
-        GPT_3_5_TURBO_0613_MODEL: (3, 1),
-        GPT_3_5_TURBO_16K_0613_MODEL: (3, 1),
-        GPT_3_5_TURBO_1106_MODEL: (3, 1),
-        GPT_3_5_TURBO_0125_MODEL: (3, 1),
-        GPT_4_0314_MODEL: (3, 1),
-        GPT_4_32K_0314_MODEL: (3, 1),
-        GPT_4_0613_MODEL: (3, 1),
-        GPT_4_32K_0613_MODEL: (3, 1),
-        GPT_4_1106_PREVIEW_MODEL: (3, 1),
-        GPT_4_0125_PREVIEW_MODEL: (3, 1),
-        GPT_4_TURBO_PREVIEW_MODEL: (3, 1),
-        GPT_4_TURBO_2024_04_09_MODEL: (3, 1),
-        GPT_4O_2024_05_13_MODEL: (3, 1),
-        GPT_3_5_TURBO_0301_MODEL: (4, -1),
-    }
-    return model_specific_tokens.get(model, None)
+    return MODEL_SPECIFIC_TOKENS.get(model, None)
 
 
 def handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[str, str]]]]):
