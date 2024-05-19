@@ -38,6 +38,7 @@ from app.openai_constants import (
     GPT_4O_MODEL,
     GPT_4O_2024_05_13_MODEL,
     MODEL_SPECIFIC_TOKENS,
+    MODEL_FALLBACKS,
 )
 from app.slack_ops import update_wip_message
 
@@ -360,32 +361,24 @@ def context_length(
         raise NotImplementedError(error)
 
 
-def get_encoding_for_model(model: str):
+def _get_encoding_for_model(model: str):
     try:
         return tiktoken.encoding_for_model(model)
     except KeyError:
         return tiktoken.get_encoding("cl100k_base")
 
 
-def get_tokens_per_message(model: str):
+def _get_tokens_per_message(model: str):
     return MODEL_SPECIFIC_TOKENS.get(model, None)
 
 
-def handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[str, str]]]]):
-    model_fallbacks = {
-        GPT_3_5_TURBO_MODEL: GPT_3_5_TURBO_0125_MODEL,
-        GPT_3_5_TURBO_16K_MODEL: GPT_3_5_TURBO_16K_0613_MODEL,
-        GPT_4_MODEL: GPT_4_0613_MODEL,
-        GPT_4_TURBO_MODEL: GPT_4_TURBO_2024_04_09_MODEL,
-        GPT_4_32K_MODEL: GPT_4_32K_0613_MODEL,
-        GPT_4O_MODEL: GPT_4O_2024_05_13_MODEL,
-    }
-    if model in model_fallbacks:
-        return calculate_num_tokens(messages, model=model_fallbacks[model])
+def _handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[str, str]]]]):
+    if model in MODEL_FALLBACKS:
+        return calculate_num_tokens(messages, model=MODEL_FALLBACKS[model])
     return None
 
 
-def raise_not_supported_error(model: str):
+def _raise_not_supported_error(model: str):
     error = (
         f"Calculating the number of tokens for model {model} is not yet supported. "
         "See https://github.com/openai/openai-python/blob/main/chatml.md "
@@ -394,30 +387,32 @@ def raise_not_supported_error(model: str):
     raise NotImplementedError(error)
 
 
-def encode_and_count_tokens(value, encoding):
+def _encode_and_count_tokens(value:  Union[str, List[Dict[str, Union[str, Dict[str, str]]]], Dict[str, str]], encoding: tiktoken.Encoding):
     if isinstance(value, str):
         return len(encoding.encode(value))
     elif isinstance(value, list):
-        return sum(encode_and_count_tokens(item, encoding) for item in value)
+        return sum(_encode_and_count_tokens(item, encoding) for item in value)
     elif isinstance(value, dict):
-        return sum(encode_and_count_tokens(v, encoding) for k, v in value.items() if k != 'image_url')
+        return sum(_encode_and_count_tokens(v, encoding) for k, v in value.items() if k != 'image_url')
     return 0
 
 
+# Adapted from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def calculate_num_tokens(
     messages: List[Dict[str, Union[str, Dict[str, str]]]],
     model: str = GPT_3_5_TURBO_0613_MODEL
 ) -> int:
-    encoding = get_encoding_for_model(model)
+    """Returns the number of tokens used by a list of messages."""
+    encoding = _get_encoding_for_model(model)
     num_tokens = 0
 
     # Handle model-specific tokens per message and name
-    token_numbers = get_tokens_per_message(model)
+    token_numbers = _get_tokens_per_message(model)
     if token_numbers is None:
-        fallback_result = handle_fallback_models(model, messages)
+        fallback_result = _handle_fallback_models(model, messages)
         if fallback_result is not None:
             return fallback_result
-        raise_not_supported_error(model)
+        _raise_not_supported_error(model)
 
     tokens_per_message, tokens_per_name = token_numbers
 
@@ -430,7 +425,7 @@ def calculate_num_tokens(
                     + len(encoding.encode(value["arguments"]))
                 )
             else:
-                num_tokens += encode_and_count_tokens(value, encoding)
+                num_tokens += _encode_and_count_tokens(value, encoding)
             if key == "name":
                 num_tokens += tokens_per_name
 
