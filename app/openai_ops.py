@@ -387,7 +387,7 @@ def _raise_not_supported_error(model: str):
     raise NotImplementedError(error)
 
 
-def _encode_and_count_tokens(value:  Union[str, List[Dict[str, Union[str, Dict[str, str]]]], Dict[str, str]], encoding: tiktoken.Encoding):
+def _encode_and_count_tokens(value: Union[str, List[Dict[str, Union[str, Dict[str, str]]]], Dict[str, str]], encoding: tiktoken.Encoding):
     if isinstance(value, str):
         return len(encoding.encode(value))
     elif isinstance(value, list):
