@@ -67,7 +67,6 @@ def respond_to_app_mention(
     client: WebClient,
     logger: logging.Logger,
 ):
-    logger.info(f"Received an app mention: {payload}")
     thread_ts = payload.get("thread_ts")
     if thread_ts is not None:
         parent_message = find_parent_message(
@@ -112,17 +111,14 @@ def respond_to_app_mention(
                     }
                 ]
 
-                # Add images if any
-                files = reply.get(files)
-                if files:
-                    append_image_content(files, content)
+                append_image_content_if_exists(reply.get("files"), content)
 
-                    messages.append(
-                        {
-                            "role": "assistant" if "user" in reply and reply["user"] == context.bot_user_id else "user",
-                            "content": content,
-                        }
-                    )
+                messages.append(
+                    {
+                        "role": "assistant" if "user" in reply and reply["user"] == context.bot_user_id else "user",
+                        "content": content,
+                    }
+                )
         else:
             # Strip bot Slack user ID from initial message
             msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
@@ -134,9 +130,7 @@ def respond_to_app_mention(
             }
             content = [text_item]
             # also add images in the message, the content will be a json object. will have both text and image_url type
-            files = payload.get("files")
-            if files:
-                append_image_content(files, content)
+            append_image_content_if_exists(payload.get("files"), content)
 
             messages.append(
                 {
@@ -239,7 +233,9 @@ def respond_to_app_mention(
             )
 
 
-def append_image_content(files, content):
+def append_image_content_if_exists(files, content):
+    if files is None:
+        return
     for file in files:
         mime_type = file.get("mimetype")
         if mime_type and mime_type.startswith("image"):
@@ -382,9 +378,8 @@ def respond_to_new_message(
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                 }
             ]
-            files = reply.get("files")
-            if files:
-                append_image_content(files, content)
+
+            append_image_content_if_exists(reply.get("files"), content)
             messages.append(
                 {
                     "content": content,
