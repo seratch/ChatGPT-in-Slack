@@ -5,4 +5,4 @@ tiktoken>=0.6,<0.7
 # https://github.com/Yelp/elastalert/issues/2306
 urllib3<2
 # https://github.com/python-pillow/Pillow
-pillow==9.4.0
+pillow==10.3.0
