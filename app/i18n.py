@@ -1,6 +1,6 @@
 from typing import Optional
 
-import openai
+from openai import OpenAI, AzureOpenAI
 from slack_bolt import BoltContext
 
 from .openai_constants import GPT_3_5_TURBO_0613_MODEL
@@ -43,8 +43,19 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
     cached_result = _translation_result_cache.get(f"{lang}:{text}")
     if cached_result is not None:
         return cached_result
-    response = openai.ChatCompletion.create(
-        api_key=openai_api_key,
+    if context.get("OPENAI_API_TYPE") == "azure":
+        client = AzureOpenAI(
+            api_key=openai_api_key,
+            api_version=context.get("OPENAI_API_VERSION"),
+            azure_endpoint=context.get("OPENAI_API_BASE"),
+            azure_deployment=context.get("OPENAI_DEPLOYMENT_ID"),
+        )
+    else:
+        client = OpenAI(
+            api_key=openai_api_key,
+            base_url=context.get("OPENAI_API_BASE"),
+        )
+    response = client.chat.completions.create(
         model=GPT_3_5_TURBO_0613_MODEL,
         messages=[
             {
@@ -73,11 +84,7 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
         frequency_penalty=0,
         logit_bias={},
         user="system",
-        api_base=context.get("OPENAI_API_BASE"),
-        api_type=context.get("OPENAI_API_TYPE"),
-        api_version=context.get("OPENAI_API_VERSION"),
-        deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
     )
-    translated_text = response["choices"][0]["message"].get("content")
+    translated_text = response.model_dump()["choices"][0]["message"].get("content")
     _translation_result_cache[f"{lang}:{text}"] = translated_text
     return translated_text
