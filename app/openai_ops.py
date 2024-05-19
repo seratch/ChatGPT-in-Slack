@@ -344,11 +344,13 @@ def context_length(
         error = f"Calculating the length of the context window for model {model} is not yet supported."
         raise NotImplementedError(error)
 
+
 def get_encoding_for_model(model: str):
     try:
         return tiktoken.encoding_for_model(model)
     except KeyError:
         return tiktoken.get_encoding("cl100k_base")
+
 
 def get_tokens_per_message(model: str):
     model_specific_tokens = {
@@ -369,6 +371,7 @@ def get_tokens_per_message(model: str):
     }
     return model_specific_tokens.get(model, None)
 
+
 def handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[str, str]]]]):
     model_fallbacks = {
         GPT_3_5_TURBO_MODEL: GPT_3_5_TURBO_0125_MODEL,
@@ -382,6 +385,7 @@ def handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[
         return calculate_num_tokens(messages, model=model_fallbacks[model])
     return None
 
+
 def raise_not_supported_error(model: str):
     error = (
         f"Calculating the number of tokens for model {model} is not yet supported. "
@@ -389,6 +393,7 @@ def raise_not_supported_error(model: str):
         "for information on how messages are converted to tokens."
     )
     raise NotImplementedError(error)
+
 
 def encode_and_count_tokens(value, encoding):
     if isinstance(value, str):
@@ -398,6 +403,7 @@ def encode_and_count_tokens(value, encoding):
     elif isinstance(value, dict):
         return sum(encode_and_count_tokens(v, encoding) for k, v in value.items() if k != 'image_url')
     return 0
+
 
 def calculate_num_tokens(
     messages: List[Dict[str, Union[str, Dict[str, str]]]],
@@ -432,6 +438,7 @@ def calculate_num_tokens(
     num_tokens += 3  # every reply is primed with <|im_start|>assistant<|im_sep|>
 
     return num_tokens
+
 
 # Format message from OpenAI to display in Slack
 def format_assistant_reply(content: str, translate_markdown: bool) -> str:

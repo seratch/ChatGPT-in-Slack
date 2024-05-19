@@ -130,7 +130,7 @@ def respond_to_app_mention(
             text_item = {
                 "type": "text",
                 "text": f"<@{user_id}>: "
-                    + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
+                + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
             }
             content = [text_item]
             # also add images in the message, the content will be a json object. will have both text and image_url type
@@ -238,6 +238,7 @@ def respond_to_app_mention(
                 text=text,
             )
 
+
 def append_image_content(files, content):
     for file in files:
         mime_type = file.get("mimetype")
@@ -253,6 +254,7 @@ def append_image_content(files, content):
                 content.append(image_item)
             else:
                 logger.debug(f'Image format {image_format} is not supported')
+
 
 def respond_to_new_message(
     context: BoltContext,
