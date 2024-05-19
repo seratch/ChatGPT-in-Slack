@@ -49,9 +49,13 @@ def download_and_encode_image(image_url, token):
         if 'image' not in content_type:
             raise ValueError(f"Content type {content_type} is not an image")
 
-        try:
-            image = Image.open(BytesIO(response.content))
-            image_format = image.format
-        except Exception as e:
-            raise ValueError(f"Error opening image: {e}")
-        return base64.b64encode(response.content).decode('utf-8'), image_format
+        return encode_image(response.content)
+
+
+def encode_image(image_data):
+    try:
+        image = Image.open(BytesIO(image_data))
+        image_format = image.format
+    except Exception as e:
+        raise ValueError(f"Error opening image: {e}")
+    return base64.b64encode(image_data).decode('utf-8'), image_format
