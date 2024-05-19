@@ -274,7 +274,6 @@ def respond_to_new_message(
         if is_in_dm_with_bot is False and thread_ts is None:
             return
 
-        logger.debug(f"Received an new message: {payload}")
         messages_in_context = []
         if is_in_dm_with_bot is True and thread_ts is None:
             # In the DM with the bot; this is not within a thread
