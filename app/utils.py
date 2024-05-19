@@ -36,6 +36,7 @@ def redact_string(input_string: str) -> str:
 
     return output_string
 
+
 def download_and_encode_image(image_url, token):
     headers = {
         'Authorization': f'Bearer {token}'
