@@ -42,8 +42,8 @@ export SLACK_BOT_TOKEN=xoxb-...
 # Visit https://platform.openai.com/account/api-keys for this token
 export OPENAI_API_KEY=sk-...
 
-# Optional: gpt-3.5-turbo and gpt-4 are currently supported (default: gpt-3.5-turbo)
-export OPENAI_MODEL=gpt-4
+# Optional: gpt-3.5-turbo and newer ones are currently supported (default: gpt-3.5-turbo)
+export OPENAI_MODEL=gpt-4o
 # Optional: Model temperature between 0 and 2 (default: 1.0)
 export OPENAI_TEMPERATURE=1
 # Optional: You can adjust the timeout seconds for OpenAI calls (default: 30)
@@ -57,8 +57,10 @@ export USE_SLACK_LANGUAGE=true
 export SLACK_APP_LOG_LEVEL=INFO
 # Optional: When the string is "true", translate between OpenAI markdown and Slack mrkdwn format (default: false)
 export TRANSLATE_MARKDOWN=true
-# Optional: When the string is "true", perform some basic redaction on propmts sent to OpenAI (default: false)
+# Optional: When the string is "true", perform some basic redaction on prompts sent to OpenAI (default: false)
 export REDACTION_ENABLED=true
+# Optional: When the string is "true", this app shares image files with OpenAI (default: false)
+export IMAGE_FILE_ACCESS_ENABLED=true
 
 # To use Azure OpenAI, set the following optional environment variables according to your environment
 # default: None

@@ -40,6 +40,7 @@ provider:
     OPENAI_TIMEOUT_SECONDS: 25
     SLACK_APP_LOG_LEVEL: WARN
     TRANSLATE_MARKDOWN: true
+    IMAGE_FILE_ACCESS_ENABLED: true
 
 functions:
   app:

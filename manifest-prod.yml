@@ -29,6 +29,8 @@ oauth_config:
       - chat:write.public
       - chat:write
       - users:read
+      - files:read
+      - files:write
 settings:
   event_subscriptions:
     request_url: https://TODO.amazonaws.com/slack/events
