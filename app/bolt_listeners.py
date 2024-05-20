@@ -35,7 +35,7 @@ from app.slack_ops import (
     update_wip_message,
     extract_state_value,
     build_thread_replies_as_combined_text,
-    can_access_file_content,
+    can_send_image_url_to_openai,
 )
 
 from app.utils import redact_string
@@ -103,15 +103,14 @@ def respond_to_app_mention(
             ).get("messages", [])
             for reply in replies_in_thread:
                 reply_text = redact_string(reply.get("text"))
-                content = [
-                    {
-                        "type": "text",
-                        "text": f"<@{reply['user'] if 'user' in reply else reply['username']}>: "
-                        + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
-                    }
-                ]
+                message_text_item = {
+                    "type": "text",
+                    "text": f"<@{reply['user'] if 'user' in reply else reply['username']}>: "
+                    + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
+                }
+                content = [message_text_item]
 
-                if can_access_file_content(context):
+                if can_send_image_url_to_openai(context):
                     append_image_content_if_exists(
                         bot_token=context.bot_token,
                         files=reply.get("files"),
@@ -140,7 +139,7 @@ def respond_to_app_mention(
             }
             content = [message_text_item]
 
-            if can_access_file_content(context):
+            if can_send_image_url_to_openai(context):
                 append_image_content_if_exists(
                     bot_token=context.bot_token,
                     files=payload.get("files"),
@@ -369,7 +368,7 @@ def respond_to_new_message(
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                 }
             ]
-            if can_access_file_content(context):
+            if can_send_image_url_to_openai(context):
                 append_image_content_if_exists(
                     bot_token=context.bot_token,
                     files=reply.get("files"),

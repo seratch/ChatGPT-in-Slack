@@ -229,11 +229,18 @@ def extract_state_value(payload: dict, block_id: str, action_id: str = "input") 
 # ----------------------------
 
 
-def can_access_file_content(context: BoltContext) -> bool:
+def can_send_image_url_to_openai(context: BoltContext) -> bool:
     if IMAGE_FILE_ACCESS_ENABLED is False:
         return False
     bot_scopes = context.authorize_result.bot_scopes or []
-    return context and "files:read" in bot_scopes
+    can_access_files = context and "files:read" in bot_scopes
+    if can_access_files is False:
+        return False
+
+    openai_model = context.get("OPENAI_MODEL")
+    # More supported models will come. This logic will need to be updated then.
+    can_send_image_url = openai_model is not None and openai_model.startswith("gpt-4o")
+    return can_send_image_url
 
 
 def download_slack_image_content(image_url: str, bot_token: str) -> bytes:
