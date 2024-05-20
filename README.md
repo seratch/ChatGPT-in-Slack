@@ -11,19 +11,56 @@ If you're looking for a sample app operating on [Slack's next-generation hosted 
 
 ## How It Works
 
-You can interact with ChatGPT like you do in the website. In the same thread, the bot remember what you already said.
+You can interact with ChatGPT as you do on the website. 
 
-<img src="https://user-images.githubusercontent.com/19658/222405498-867f5002-c8ba-4dc9-bd86-fddc5192070c.gif" width=450 />
+While communicating in the same thread, the bot remembers what you have already said:
 
-Consider this realistic scenario: ask the bot to generate a business email for communication with your manager.
+<img width="700" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/501709b0-639d-4b35-98a9-3d5102c41685" />
+
+Consider this realistic scenario: ask the bot to generate a business email for communicating with your manager:
 
 <img width="700" src="https://user-images.githubusercontent.com/19658/222609940-eb581361-eeea-441a-a300-96ecdbc23d0b.png">
 
-With ChatGPT, you don't need to ask a perfectly formulated question at first. Adjusting the details after receiving the bot's initial response is a great approach.
+With ChatGPT, you don't need to ask a perfectly formulated question at first. Adjusting the details after receiving the bot's initial response is a great approach:
 
 <img width="700" src="https://user-images.githubusercontent.com/19658/222609947-b99ace0d-4c90-4265-940d-3fc373429b80.png">
 
 Doesn't that sound cool? 😎
+
+## Three Supported Interfaces
+
+There are three interfaces to use. When you want to share a conversation with others in the Slack workspace, always using channel threads is the best option. If you wish to use ChatGPT privately, the other interfaces are more convenient for that purpose.
+
+1. Talk to the bot in a channel thread
+2. Talk to the bot in a 1:1 DM
+3. Send prompts on your Home tab
+
+### Talk to the bot in a channel thread
+
+This is the most common way to use this app. You can start a conversation with ChatGPT Bot at any time just by mentioning the bot in a thread's initial message. Within the thread, you don't need to mention the bot anymore:
+
+<img width="700" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/8b3199a9-b413-4002-a702-b0b92e866658">
+
+### Talk to the bot in a 1:1 DM
+
+You can privately ask for help using a 1:1 DM with the bot. No need to mention the bot. Just send a message in the DM:
+
+<img width="700" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/eadb7930-4e43-4a95-80ff-7263d02313b1">
+
+### Send prompts on your Home tab
+
+On the Home tab, in addition to the OpenAI API key and model configuration, you can use the quick proofreader and free prompt sender dialogs. These are so handy that you can quickly send inquiries to OpenAI, even from a mobile device.
+
+<img width="500" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/149bbfb7-1455-4a31-b818-9dc19567c2df">
+
+Here is an exmaple of proofreading on Home tab:
+
+<img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/6dcc8a3d-27bc-4719-b495-e3a5e39d1cc7">
+<img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/ca4a8f18-9cbf-4e8d-b656-904596e5895f">
+
+To ask any other questions, you can use the from-scratch modal instead:
+
+<img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/72c663a4-b0d2-4ac5-9f75-25e776f500df">
 
 ## Running the App on Your Local Machine
 
