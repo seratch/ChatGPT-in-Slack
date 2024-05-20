@@ -1,9 +1,13 @@
 from typing import Optional
 from typing import List, Dict
 
+import requests
+
 from slack_sdk.web import WebClient, SlackResponse
+from slack_sdk.errors import SlackApiError
 from slack_bolt import BoltContext
 
+from app.env import IMAGE_FILE_ACCESS_ENABLED
 from app.i18n import translate
 from app.markdown import slack_to_markdown
 
@@ -218,3 +222,36 @@ def build_home_tab(
 def extract_state_value(payload: dict, block_id: str, action_id: str = "input") -> dict:
     state_values = payload["state"]["values"]
     return state_values[block_id][action_id]
+
+
+# ----------------------------
+# Files
+# ----------------------------
+
+
+def can_access_file_content(context: BoltContext) -> bool:
+    if IMAGE_FILE_ACCESS_ENABLED is False:
+        return False
+    bot_scopes = context.authorize_result.bot_scopes or []
+    return context and "files:read" in bot_scopes
+
+
+def download_slack_image_content(image_url: str, bot_token: str) -> bytes:
+    response = requests.get(
+        image_url,
+        headers={"Authorization": f"Bearer {bot_token}"},
+    )
+    if response.status_code != 200:
+        error = f"Request to {image_url} failed with status code {response.status_code}"
+        raise SlackApiError(error, response)
+
+    content_type = response.headers["content-type"]
+    if content_type.startswith("text/html"):
+        error = f"You don't have the permission to download this file: {image_url}"
+        raise SlackApiError(error, response)
+
+    if not content_type.startswith("image/"):
+        error = f"The responded content-type is not for image data: {content_type}"
+        raise SlackApiError(error, response)
+
+    return response.content

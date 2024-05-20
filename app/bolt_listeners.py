@@ -1,9 +1,8 @@
 import json
 import logging
-import os
 import re
 import time
-from typing import Optional
+from typing import Optional, List
 
 from openai import APITimeoutError
 from slack_bolt import App, Ack, BoltContext, BoltResponse
@@ -15,8 +14,10 @@ from app.env import (
     OPENAI_TIMEOUT_SECONDS,
     SYSTEM_TEXT,
     TRANSLATE_MARKDOWN,
+    IMAGE_FILE_ACCESS_ENABLED,
 )
 from app.i18n import translate
+from app.image_ops import append_image_content_if_exists
 from app.openai_ops import (
     start_receiving_openai_response,
     format_openai_message_content,
@@ -34,9 +35,10 @@ from app.slack_ops import (
     update_wip_message,
     extract_state_value,
     build_thread_replies_as_combined_text,
+    can_access_file_content,
 )
 
-from app.utils import download_and_encode_image, redact_string
+from app.utils import redact_string
 
 #
 # Listener functions
@@ -69,9 +71,7 @@ def respond_to_app_mention(
 ):
     thread_ts = payload.get("thread_ts")
     if thread_ts is not None:
-        parent_message = find_parent_message(
-            client, context.channel_id, thread_ts
-        )
+        parent_message = find_parent_message(client, context.channel_id, thread_ts)
         if parent_message is not None and is_this_app_mentioned(
             context, parent_message
         ):
@@ -107,15 +107,25 @@ def respond_to_app_mention(
                     {
                         "type": "text",
                         "text": f"<@{reply['user'] if 'user' in reply else reply['username']}>: "
-                        + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN)
+                        + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                     }
                 ]
 
-                append_image_content_if_exists(reply.get("files"), content)
+                if can_access_file_content(context):
+                    append_image_content_if_exists(
+                        bot_token=context.bot_token,
+                        files=reply.get("files"),
+                        content=content,
+                        logger=context.logger,
+                    )
 
                 messages.append(
                     {
-                        "role": "assistant" if "user" in reply and reply["user"] == context.bot_user_id else "user",
+                        "role": (
+                            "assistant"
+                            if "user" in reply and reply["user"] == context.bot_user_id
+                            else "user"
+                        ),
                         "content": content,
                     }
                 )
@@ -123,21 +133,22 @@ def respond_to_app_mention(
             # Strip bot Slack user ID from initial message
             msg_text = re.sub(f"<@{context.bot_user_id}>\\s*", "", payload["text"])
             msg_text = redact_string(msg_text)
-            text_item = {
+            message_text_item = {
                 "type": "text",
                 "text": f"<@{user_id}>: "
                 + format_openai_message_content(msg_text, TRANSLATE_MARKDOWN),
             }
-            content = [text_item]
-            # also add images in the message, the content will be a json object. will have both text and image_url type
-            append_image_content_if_exists(payload.get("files"), content)
+            content = [message_text_item]
 
-            messages.append(
-                {
-                    "role": "user",
-                    "content": content
-                }
-            )
+            if can_access_file_content(context):
+                append_image_content_if_exists(
+                    bot_token=context.bot_token,
+                    files=payload.get("files"),
+                    content=content,
+                    logger=context.logger,
+                )
+
+            messages.append({"role": "user", "content": content})
 
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
@@ -231,25 +242,6 @@ def respond_to_app_mention(
                 ts=wip_reply["message"]["ts"],
                 text=text,
             )
-
-
-def append_image_content_if_exists(files, content):
-    if files is None:
-        return
-    for file in files:
-        mime_type = file.get("mimetype")
-        if mime_type and mime_type.startswith("image"):
-            encoded_image, image_format = download_and_encode_image(file.get("url_private"), os.environ["SLACK_BOT_TOKEN"])
-            if image_format.lower() in ["jpeg", "png", "gif"]:
-                image_item = {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{mime_type};base64,{encoded_image}"
-                    }
-                }
-                content.append(image_item)
-            else:
-                logger.debug(f'Image format {image_format} is not supported')
 
 
 def respond_to_new_message(
@@ -377,8 +369,14 @@ def respond_to_new_message(
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                 }
             ]
+            if can_access_file_content(context):
+                append_image_content_if_exists(
+                    bot_token=context.bot_token,
+                    files=reply.get("files"),
+                    content=content,
+                    logger=context.logger,
+                )
 
-            append_image_content_if_exists(reply.get("files"), content)
             messages.append(
                 {
                     "content": content,
@@ -1214,6 +1212,21 @@ def display_chat_from_scratch_result(
 
 
 def register_listeners(app: App):
+
+    # TODO: remove this workaround once bolt-python attaches scopes to context under the hood
+    @app.middleware
+    def attach_bot_scopes(client: WebClient, context: BoltContext, next_):
+        if (
+            # the bot_scopes is used for #can_access_file_content method calls
+            IMAGE_FILE_ACCESS_ENABLED is True
+            and context.authorize_result is not None
+            and context.authorize_result.bot_scopes is None
+        ):
+            auth_test = client.auth_test(token=context.bot_token)
+            scopes = auth_test.headers.get("x-oauth-scopes", [])
+            context.authorize_result.bot_scopes = scopes
+        next_()
+
     # Chat with the bot
     app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     app.event("message")(ack=just_ack, lazy=[respond_to_new_message])

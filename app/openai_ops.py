@@ -37,7 +37,7 @@ from app.openai_constants import (
     GPT_4_32K_0613_MODEL,
     GPT_4O_MODEL,
     GPT_4O_2024_05_13_MODEL,
-    MODEL_SPECIFIC_TOKENS,
+    MODEL_TOKENS,
     MODEL_FALLBACKS,
 )
 from app.slack_ops import update_wip_message
@@ -361,71 +361,66 @@ def context_length(
         raise NotImplementedError(error)
 
 
-def _get_encoding_for_model(model: str):
-    try:
-        return tiktoken.encoding_for_model(model)
-    except KeyError:
-        return tiktoken.get_encoding("cl100k_base")
-
-
-def _get_tokens_per_message(model: str):
-    return MODEL_SPECIFIC_TOKENS.get(model, None)
-
-
-def _handle_fallback_models(model: str, messages: List[Dict[str, Union[str, Dict[str, str]]]]):
-    if model in MODEL_FALLBACKS:
-        return calculate_num_tokens(messages, model=MODEL_FALLBACKS[model])
-    return None
-
-
-def _raise_not_supported_error(model: str):
-    error = (
-        f"Calculating the number of tokens for model {model} is not yet supported. "
-        "See https://github.com/openai/openai-python/blob/main/chatml.md "
-        "for information on how messages are converted to tokens."
-    )
-    raise NotImplementedError(error)
-
-
-def _encode_and_count_tokens(value: Union[str, List[Dict[str, Union[str, Dict[str, str]]]], Dict[str, str]], encoding: tiktoken.Encoding):
+def encode_and_count_tokens(
+    value: Union[str, List[Dict[str, Union[str, Dict[str, str]]]], Dict[str, str]],
+    encoding: tiktoken.Encoding,
+) -> int:
     if isinstance(value, str):
         return len(encoding.encode(value))
     elif isinstance(value, list):
-        return sum(_encode_and_count_tokens(item, encoding) for item in value)
+        return sum(encode_and_count_tokens(item, encoding) for item in value)
     elif isinstance(value, dict):
-        return sum(_encode_and_count_tokens(v, encoding) for k, v in value.items() if k != 'image_url')
+        return sum(
+            encode_and_count_tokens(v, encoding)
+            for k, v in value.items()
+            if k != "image_url"
+        )
     return 0
 
 
-# Adapted from https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
+# Initially adapted from the following source code,
+# and then we customized it to support broader use cases
+# https://github.com/openai/openai-cookbook/blob/main/examples/How_to_count_tokens_with_tiktoken.ipynb
 def calculate_num_tokens(
-    messages: List[Dict[str, Union[str, Dict[str, str]]]],
-    model: str = GPT_3_5_TURBO_0613_MODEL
+    messages: List[Dict[str, Union[str, Dict[str, str], List[Dict[str, str]]]]],
+    model: str = GPT_3_5_TURBO_0613_MODEL,
 ) -> int:
     """Returns the number of tokens used by a list of messages."""
-    encoding = _get_encoding_for_model(model)
+    try:
+        encoding = tiktoken.encoding_for_model(model)
+    except KeyError:
+        encoding = tiktoken.get_encoding("cl100k_base")
     num_tokens = 0
 
     # Handle model-specific tokens per message and name
-    token_numbers = _get_tokens_per_message(model)
-    if token_numbers is None:
-        fallback_result = _handle_fallback_models(model, messages)
+    model_tokens: Optional[Tuple[int, int]] = MODEL_TOKENS.get(model, None)
+    if model_tokens is None:
+        fallback_result = None
+        if model in MODEL_FALLBACKS:
+            actual_model = MODEL_FALLBACKS[model]
+            fallback_result = calculate_num_tokens(messages, model=actual_model)
         if fallback_result is not None:
             return fallback_result
-        _raise_not_supported_error(model)
+        error = (
+            f"Calculating the number of tokens for model {model} is not yet supported. "
+            "See https://github.com/openai/openai-python/blob/main/chatml.md "
+            "for information on how messages are converted to tokens."
+        )
+        raise NotImplementedError(error)
 
-    tokens_per_message, tokens_per_name = token_numbers
+    tokens_per_message, tokens_per_name = model_tokens
 
     for message in messages:
         num_tokens += tokens_per_message
         for key, value in message.items():
             if key == "function_call":
                 num_tokens += (
-                    1 + len(encoding.encode(value["name"]))
+                    1
+                    + len(encoding.encode(value["name"]))
                     + len(encoding.encode(value["arguments"]))
                 )
             else:
-                num_tokens += _encode_and_count_tokens(value, encoding)
+                num_tokens += encode_and_count_tokens(value, encoding)
             if key == "name":
                 num_tokens += tokens_per_name
 
