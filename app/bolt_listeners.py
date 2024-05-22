@@ -7,6 +7,7 @@ from openai import APITimeoutError
 from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
 from slack_sdk.web import WebClient
+from slack_sdk.errors import SlackApiError
 
 from app.env import (
     OPENAI_TIMEOUT_SECONDS,
@@ -64,6 +65,7 @@ from app.slack_ui import (
     build_image_generation_wip_modal,
     build_image_generation_result_modal,
     build_image_generation_text_modal,
+    build_image_generation_result_blocks,
 )
 
 
@@ -772,7 +774,7 @@ def display_image_generation_result(
             "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
         )
         text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
-        view = build_image_generation_result_modal(
+        blocks = build_image_generation_result_blocks(
             text=text,
             spent_seconds=str(round(spent_seconds, 2)),
             image_url=image_url,
@@ -781,21 +783,47 @@ def display_image_generation_result(
             quality=quality,
             style=style,
         )
-        client.views_update(view_id=payload["id"], view=view)
+        client.chat_postMessage(
+            channel=context.actor_user_id,
+            text=f"Here is the generated image URL: {image_url}",
+            blocks=blocks,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_generation_result_modal(blocks),
+        )
 
     except (APITimeoutError, TimeoutError):
+        client.chat_postMessage(
+            channel=context.actor_user_id,
+            text=TIMEOUT_ERROR_MESSAGE,
+        )
         client.views_update(
             view_id=payload["id"],
             view=build_image_generation_text_modal(TIMEOUT_ERROR_MESSAGE),
         )
-    except Exception as e:
-        logger.exception(f"Failed to share a generated image: {e}")
+    except SlackApiError as e:
+        logger.exception(f"Failed to call Slack APIs for image generation: {e}")
         client.views_update(
             view_id=payload["id"],
             view=build_image_generation_text_modal(
                 f"{text}\n\n:warning: My apologies! "
-                f"An error occurred while generating an image: {e}"
+                f"An error occurred while calling Slack APIs: {e}"
             ),
+        )
+    except Exception as e:
+        logger.exception(f"Failed to share a generated image: {e}")
+        error = (
+            f"{text}\n\n:warning: My apologies! "
+            f"An error occurred while generating an image: {e}"
+        )
+        client.chat_postMessage(
+            channel=context.actor_user_id,
+            text=error,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_generation_text_modal(error),
         )
 
 
