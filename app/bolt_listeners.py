@@ -13,9 +13,13 @@ from app.env import (
     SYSTEM_TEXT,
     TRANSLATE_MARKDOWN,
     IMAGE_FILE_ACCESS_ENABLED,
+    OPENAI_IMAGE_GENERATION_MODEL,
 )
 from app.i18n import translate
-from app.image_ops import append_image_content_if_exists
+from app.openai_image_ops import (
+    append_image_content_if_exists,
+    generate_image,
+)
 from app.openai_ops import (
     start_receiving_openai_response,
     format_openai_message_content,
@@ -56,6 +60,10 @@ from app.slack_ui import (
     build_from_scratch_result_modal,
     build_from_scratch_timeout_modal,
     build_from_scratch_error_modal,
+    build_image_generation_input_modal,
+    build_image_generation_wip_modal,
+    build_image_generation_result_modal,
+    build_image_generation_text_modal,
 )
 
 
@@ -197,6 +205,7 @@ def respond_to_app_mention(
                 openai_api_base=context["OPENAI_API_BASE"],
                 openai_api_version=context["OPENAI_API_VERSION"],
                 openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+                openai_organization_id=context["OPENAI_ORG_ID"],
                 function_call_module_name=context["OPENAI_FUNCTION_CALL_MODULE_NAME"],
             )
             consume_openai_stream_to_write_reply(
@@ -435,6 +444,7 @@ def respond_to_new_message(
                 openai_api_base=context["OPENAI_API_BASE"],
                 openai_api_version=context["OPENAI_API_VERSION"],
                 openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+                openai_organization_id=context["OPENAI_ORG_ID"],
                 function_call_module_name=context["OPENAI_FUNCTION_CALL_MODULE_NAME"],
             )
 
@@ -668,7 +678,7 @@ def display_proofreading_result(
         logger.exception(f"Failed to share a proofreading result: {e}")
         client.views_update(
             view_id=payload["id"],
-            view=build_proofreading_error_modal(payload=payload, text=text),
+            view=build_proofreading_error_modal(payload=payload, text=text, e=e),
         )
 
 
@@ -710,6 +720,82 @@ def send_proofreading_result_in_dm(
             )
     except Exception as e:
         logger.exception(f"Failed to send a DM: {e}")
+
+
+#
+# Image generation
+#
+
+
+def start_image_generation(client: WebClient, body: dict, payload: dict):
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view=build_image_generation_input_modal(payload.get("value")),
+    )
+
+
+def ack_image_generation_modal_submission(ack: Ack):
+    ack(response_action="update", view=build_image_generation_wip_modal())
+
+
+def display_image_generation_result(
+    client: WebClient,
+    context: BoltContext,
+    logger: logging.Logger,
+    payload: dict,
+):
+    text = ""
+    try:
+        prompt = extract_state_value(payload, "image_generation_prompt").get("value")
+        size = extract_state_value(payload, "size").get("selected_option").get("value")
+        quality = (
+            extract_state_value(payload, "quality").get("selected_option").get("value")
+        )
+        style = (
+            extract_state_value(payload, "style").get("selected_option").get("value")
+        )
+
+        start_time = time.time()
+        image_url = generate_image(
+            context=context,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            style=style,
+            timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+        )
+        spent_seconds = time.time() - start_time
+        logger.debug(
+            f"Image generated (url: {image_url} , spent time: {spent_seconds})"
+        )
+        model = context.get(
+            "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
+        )
+        view = build_image_generation_result_modal(
+            prompt=prompt,
+            spent_seconds=str(round(spent_seconds, 2)),
+            image_url=image_url,
+            model=model,
+            size=size,
+            quality=quality,
+            style=style,
+        )
+        client.views_update(view_id=payload["id"], view=view)
+
+    except (APITimeoutError, TimeoutError):
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_generation_text_modal(TIMEOUT_ERROR_MESSAGE),
+        )
+    except Exception as e:
+        logger.exception(f"Failed to share a generated image: {e}")
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_generation_text_modal(
+                f"{text}\n\n:warning: My apologies! "
+                f"An error occurred while generating an image: {e}"
+            ),
+        )
 
 
 #
@@ -809,6 +895,16 @@ def register_listeners(app: App):
     app.action("send-proofread-result-in-dm")(
         ack=just_ack,
         lazy=[send_proofreading_result_in_dm],
+    )
+
+    # Image generation
+    app.action("templates-image-generation")(
+        ack=just_ack,
+        lazy=[start_image_generation],
+    )
+    app.view("image-generation")(
+        ack=ack_image_generation_modal_submission,
+        lazy=[display_image_generation_result],
     )
 
     # Free format chat

@@ -16,6 +16,8 @@ from app.env import (
     OPENAI_API_VERSION,
     OPENAI_DEPLOYMENT_ID,
     OPENAI_FUNCTION_CALL_MODULE_NAME,
+    OPENAI_ORG_ID,
+    OPENAI_IMAGE_GENERATION_MODEL,
 )
 from app.slack_ui import build_home_tab
 
@@ -63,11 +65,13 @@ if __name__ == "__main__":
     def set_openai_api_key(context: BoltContext, next_):
         context["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
         context["OPENAI_MODEL"] = OPENAI_MODEL
+        context["OPENAI_IMAGE_GENERATION_MODEL"] = OPENAI_IMAGE_GENERATION_MODEL
         context["OPENAI_TEMPERATURE"] = OPENAI_TEMPERATURE
         context["OPENAI_API_TYPE"] = OPENAI_API_TYPE
         context["OPENAI_API_BASE"] = OPENAI_API_BASE
         context["OPENAI_API_VERSION"] = OPENAI_API_VERSION
         context["OPENAI_DEPLOYMENT_ID"] = OPENAI_DEPLOYMENT_ID
+        context["OPENAI_ORG_ID"] = OPENAI_ORG_ID
         context["OPENAI_FUNCTION_CALL_MODULE_NAME"] = OPENAI_FUNCTION_CALL_MODULE_NAME
         next_()
 

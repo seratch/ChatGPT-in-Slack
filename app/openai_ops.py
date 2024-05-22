@@ -106,6 +106,7 @@ def make_synchronous_openai_call(
     openai_api_base: str,
     openai_api_version: str,
     openai_deployment_id: str,
+    openai_organization_id: Optional[str],
     timeout_seconds: int,
 ) -> Completion:
     if openai_api_type == "azure":
@@ -119,6 +120,7 @@ def make_synchronous_openai_call(
         client = OpenAI(
             api_key=openai_api_key,
             base_url=openai_api_base,
+            organization=openai_organization_id,
         )
     return client.chat.completions.create(
         model=model,
@@ -147,6 +149,7 @@ def start_receiving_openai_response(
     openai_api_base: str,
     openai_api_version: str,
     openai_deployment_id: str,
+    openai_organization_id: Optional[str],
     function_call_module_name: Optional[str],
 ) -> Stream[Completion]:
     kwargs = {}
@@ -163,6 +166,7 @@ def start_receiving_openai_response(
         client = OpenAI(
             api_key=openai_api_key,
             base_url=openai_api_base,
+            organization=openai_organization_id,
         )
     return client.chat.completions.create(
         model=model,
@@ -274,6 +278,7 @@ def consume_openai_stream_to_write_reply(
                 openai_api_base=context.get("OPENAI_API_BASE"),
                 openai_api_version=context.get("OPENAI_API_VERSION"),
                 openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
+                openai_organization_id=context["OPENAI_ORG_ID"],
                 function_call_module_name=function_call_module_name,
             )
             consume_openai_stream_to_write_reply(
@@ -494,18 +499,7 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
         return _prompt_tokens_used_by_function_call_cache
 
     def _calculate_prompt_tokens(functions) -> int:
-        if context.get("OPENAI_API_TYPE") == "azure":
-            client = AzureOpenAI(
-                api_key=context.get("OPENAI_API_KEY"),
-                api_version=context.get("OPENAI_API_VERSION"),
-                azure_endpoint=context.get("OPENAI_API_BASE"),
-                azure_deployment=context.get("OPENAI_DEPLOYMENT_ID"),
-            )
-        else:
-            client = OpenAI(
-                api_key=context.get("OPENAI_API_KEY"),
-                base_url=context.get("OPENAI_API_BASE"),
-            )
+        client = create_openai_client(context)
         return client.chat.completions.create(
             model=context.get("OPENAI_MODEL"),
             messages=[{"role": "user", "content": "hello"}],
@@ -559,6 +553,7 @@ def generate_slack_thread_summary(
         openai_api_base=context["OPENAI_API_BASE"],
         openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+        openai_organization_id=context["OPENAI_ORG_ID"],
         timeout_seconds=timeout_seconds,
     )
     spent_time = time.time() - start_time
@@ -611,6 +606,7 @@ def generate_proofreading_result(
         openai_api_base=context["OPENAI_API_BASE"],
         openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+        openai_organization_id=context["OPENAI_ORG_ID"],
         timeout_seconds=timeout_seconds,
     )
     spent_time = time.time() - start_time
@@ -649,8 +645,24 @@ def generate_chatgpt_response(
         openai_api_base=context["OPENAI_API_BASE"],
         openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
+        openai_organization_id=context["OPENAI_ORG_ID"],
         timeout_seconds=timeout_seconds,
     )
     spent_time = time.time() - start_time
     logger.debug(f"Proofreading took {spent_time} seconds")
     return openai_response.model_dump()["choices"][0]["message"]["content"]
+
+
+def create_openai_client(context: BoltContext) -> Union[OpenAI, AzureOpenAI]:
+    if context.get("OPENAI_API_TYPE") == "azure":
+        return AzureOpenAI(
+            api_key=context.get("OPENAI_API_KEY"),
+            api_version=context.get("OPENAI_API_VERSION"),
+            azure_endpoint=context.get("OPENAI_API_BASE"),
+            azure_deployment=context.get("OPENAI_DEPLOYMENT_ID"),
+        )
+    else:
+        return OpenAI(
+            api_key=context.get("OPENAI_API_KEY"),
+            base_url=context.get("OPENAI_API_BASE"),
+        )
