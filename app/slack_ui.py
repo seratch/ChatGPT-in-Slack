@@ -639,7 +639,11 @@ def build_image_generation_input_modal(prompt: str) -> dict:
                 "type": "input",
                 "block_id": "image_generation_prompt",
                 "label": {"type": "plain_text", "text": "Prompt"},
-                "element": {"type": "plain_text_input", "action_id": "input"},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input",
+                    "multiline": True,
+                },
             },
             # https://platform.openai.com/docs/api-reference/images/create
             {

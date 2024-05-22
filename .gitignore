@@ -16,3 +16,4 @@ node_modules/
 package.json
 package-lock.json
 .python-version
+unzip_requirements.py
