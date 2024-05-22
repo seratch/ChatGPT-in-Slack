@@ -771,8 +771,9 @@ def display_image_generation_result(
         model = context.get(
             "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
         )
+        text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
         view = build_image_generation_result_modal(
-            prompt=prompt,
+            text=text,
             spent_seconds=str(round(spent_seconds, 2)),
             image_url=image_url,
             model=model,
