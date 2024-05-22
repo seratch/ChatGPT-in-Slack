@@ -653,7 +653,7 @@ def generate_chatgpt_response(
     return openai_response.model_dump()["choices"][0]["message"]["content"]
 
 
-def create_openai_client(context: BoltContext) -> OpenAI | AzureOpenAI:
+def create_openai_client(context: BoltContext) -> Union[OpenAI, AzureOpenAI]:
     if context.get("OPENAI_API_TYPE") == "azure":
         return AzureOpenAI(
             api_key=context.get("OPENAI_API_KEY"),
