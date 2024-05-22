@@ -593,7 +593,7 @@ def prepare_and_share_thread_summary(
             view=build_summarize_timeout_error_modal(),
         )
     except Exception as e:
-        logger.error(f"Failed to share a thread summary: {e}")
+        logger.exception(f"Failed to share a thread summary: {e}")
         client.views_update(
             view_id=payload["id"],
             view=build_summarize_error_modal(e),
@@ -709,7 +709,7 @@ def send_proofreading_result_in_dm(
                 ),
             )
     except Exception as e:
-        logger.error(f"Failed to send a DM: {e}")
+        logger.exception(f"Failed to send a DM: {e}")
 
 
 #
@@ -760,7 +760,7 @@ def display_chat_from_scratch_result(
             view=build_from_scratch_timeout_modal(text),
         )
     except Exception as e:
-        logger.error(f"Failed to share a thread summary: {e}")
+        logger.exception(f"Failed to share a thread summary: {e}")
         client.views_update(
             view_id=payload["id"],
             view=build_from_scratch_error_modal(text=text, e=e),

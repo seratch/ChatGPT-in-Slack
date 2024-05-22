@@ -138,7 +138,7 @@ def build_summarize_option_modal(*, context: BoltContext, body: dict) -> dict:
     return view
 
 
-def build_summarize_wip_modal() -> dict:
+def _build_summarize_wip_modal(section_text: str) -> dict:
     return {
         "type": "modal",
         "callback_id": "request-thread-summary",
@@ -147,16 +147,25 @@ def build_summarize_wip_modal() -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Got it! Working on the summary now ... :hourglass:",
-                },
+                "text": {"type": "plain_text", "text": section_text},
             },
         ],
     }
 
 
+def build_summarize_wip_modal() -> dict:
+    return _build_summarize_wip_modal(
+        "Got it! Working on the summary now ... :hourglass:"
+    )
+
+
 def build_summarize_message_modal() -> dict:
+    return _build_summarize_wip_modal(
+        "Got it! Once the summary is ready, I will post it in the thread."
+    )
+
+
+def _build_summary_result_modal(section_text: str) -> dict:
     return {
         "type": "modal",
         "callback_id": "request-thread-summary",
@@ -165,68 +174,25 @@ def build_summarize_message_modal() -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Got it! Once the summary is ready, I will post it in the thread.",
-                },
+                "text": {"type": "mrkdwn", "text": section_text},
             },
         ],
     }
 
 
 def build_summarize_result_modal(*, here_is_summary: str, summary: str) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "request-thread-summary",
-        "title": {"type": "plain_text", "text": "Summarize the thread"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{here_is_summary}\n\n{summary}",
-                },
-            },
-        ],
-    }
+    return _build_summary_result_modal(f"{here_is_summary}\n\n{summary}")
 
 
 def build_summarize_timeout_error_modal() -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "request-thread-summary",
-        "title": {"type": "plain_text", "text": "Summarize the thread"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": TIMEOUT_ERROR_MESSAGE,
-                },
-            },
-        ],
-    }
+    return _build_summary_result_modal(TIMEOUT_ERROR_MESSAGE)
 
 
 def build_summarize_error_modal(e: Exception) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "request-thread-summary",
-        "title": {"type": "plain_text", "text": "Summarize the thread"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": ":warning: My apologies! "
-                    f"An error occurred while generating the summary of this thread: {e}",
-                },
-            },
-        ],
-    }
+    return _build_summary_result_modal(
+        ":warning: My apologies! "
+        f"An error occurred while generating the summary of this thread: {e}"
+    )
 
 
 # ----------------------------
@@ -349,6 +315,24 @@ def build_configure_modal(context: BoltContext) -> dict:
             openai_api_key=already_set_api_key, context=context, text=cancel
         )
 
+    options = [
+        {
+            "text": {"type": "plain_text", "text": "GPT-3.5 Turbo"},
+            "value": GPT_3_5_TURBO_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4 8K"},
+            "value": GPT_4_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4 32K"},
+            "value": GPT_4_32K_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4o"},
+            "value": GPT_4O_MODEL,
+        },
+    ]
     return {
         "type": "modal",
         "callback_id": "configure",
@@ -369,28 +353,8 @@ def build_configure_modal(context: BoltContext) -> dict:
                 "element": {
                     "type": "static_select",
                     "action_id": "input",
-                    "options": [
-                        {
-                            "text": {"type": "plain_text", "text": "GPT-3.5 Turbo"},
-                            "value": GPT_3_5_TURBO_MODEL,
-                        },
-                        {
-                            "text": {"type": "plain_text", "text": "GPT-4 8K"},
-                            "value": GPT_4_MODEL,
-                        },
-                        {
-                            "text": {"type": "plain_text", "text": "GPT-4 32K"},
-                            "value": GPT_4_32K_MODEL,
-                        },
-                        {
-                            "text": {"type": "plain_text", "text": "GPT-4o"},
-                            "value": GPT_4O_MODEL,
-                        },
-                    ],
-                    "initial_option": {
-                        "text": {"type": "plain_text", "text": "GPT-3.5 Turbo"},
-                        "value": GPT_3_5_TURBO_MODEL,
-                    },
+                    "options": options,
+                    "initial_option": options[0],
                 },
             },
         ],
@@ -456,15 +420,14 @@ def build_proofreading_input_modal(prompt: str, tone_and_voice: Optional[str]) -
             },
         ],
     }
+    initial_option = tone_and_voice_options[0]
     if tone_and_voice is not None:
-        selected_option = {
-            "text": {"type": "plain_text", "text": tone_and_voice},
-            "value": tone_and_voice,
-        }
-        modal["blocks"][2]["element"]["initial_option"] = selected_option
-    else:
-        first_option = modal["blocks"][2]["element"]["options"][0]
-        modal["blocks"][2]["element"]["initial_option"] = first_option
+        matched_items = [
+            o for o in tone_and_voice_options if o["value"] == tone_and_voice
+        ]
+        if matched_items and len(matched_items) >= 1:
+            initial_option = matched_items[0]
+    modal["blocks"][2]["element"]["initial_option"] = initial_option
     return modal
 
 
@@ -498,6 +461,22 @@ def build_proofreading_wip_modal(
     }
 
 
+def _build_proofreading_result_modal(
+    *,
+    private_metadata: str,
+    blocks: list,
+) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "proofread-result",
+        "title": {"type": "plain_text", "text": "Proofreading"},
+        "submit": {"type": "plain_text", "text": "Try Another"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "private_metadata": private_metadata,
+        "blocks": blocks,
+    }
+
+
 def build_proofreading_result_modal(
     *,
     context: BoltContext,
@@ -518,58 +497,46 @@ def build_proofreading_result_modal(
         pm["tone_and_voice"] = tone_and_voice
         private_metadata = json.dumps(pm)
 
-    modal_view = {
-        "type": "modal",
-        "callback_id": "proofread-result",
-        "title": {"type": "plain_text", "text": "Proofreading"},
-        "submit": {"type": "plain_text", "text": "Try Another"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "private_metadata": private_metadata,
-        "blocks": [
-            {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
-                    },
-                ],
-            },
-            {
-                "type": "section",
-                "text": {
+    blocks = [
+        {
+            "type": "context",
+            "elements": [
+                {
                     "type": "mrkdwn",
-                    "text": f"{text}\n\n{result}",
+                    "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
                 },
-            },
-        ],
-    }
+            ],
+        },
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"{text}\n\n{result}"},
+        },
+    ]
     if tone_and_voice is not None:
-        modal_view["blocks"].append(
-            {
-                "type": "context",
-                "elements": [
-                    {"type": "mrkdwn", "text": f"Tone and voice: {tone_and_voice}"}
-                ],
-            }
-        )
+        context_block = {
+            "type": "context",
+            "elements": [
+                {"type": "mrkdwn", "text": f"Tone and voice: {tone_and_voice}"}
+            ],
+        }
+        blocks.append(context_block)
 
-    modal_view["blocks"].append(
+    blocks.append(
         {
             "type": "section",
             "text": {"type": "mrkdwn", "text": " "},
             "accessory": {
                 "type": "button",
-                "text": {
-                    "type": "plain_text",
-                    "text": "Send this result in DM",
-                },
+                "text": {"type": "plain_text", "text": "Send this result in DM"},
                 "value": "clicked",
                 "action_id": "send-proofread-result-in-dm",
             },
         }
     )
-    return modal_view
+    return _build_proofreading_result_modal(
+        private_metadata=private_metadata,
+        blocks=blocks,
+    )
 
 
 def build_proofreading_timeout_error_modal(
@@ -577,23 +544,16 @@ def build_proofreading_timeout_error_modal(
     payload: dict,
     text: str,
 ) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "proofread-result",
-        "title": {"type": "plain_text", "text": "Proofreading"},
-        "submit": {"type": "plain_text", "text": "Try Another"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "private_metadata": payload["private_metadata"],
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}",
-                },
-            },
-        ],
-    }
+    blocks = [
+        {
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}"},
+        },
+    ]
+    return _build_proofreading_result_modal(
+        private_metadata=payload["private_metadata"],
+        blocks=blocks,
+    )
 
 
 def build_proofreading_error_modal(
@@ -601,24 +561,20 @@ def build_proofreading_error_modal(
     payload: dict,
     text: str,
 ) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "proofread-result",
-        "title": {"type": "plain_text", "text": "Proofreading"},
-        "submit": {"type": "plain_text", "text": "Try Another"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "private_metadata": payload["private_metadata"],
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\n:warning: My apologies! "
-                    f"An error occurred while generating the summary of this thread: {e}",
-                },
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"{text}\n\n:warning: My apologies! "
+                f"An error occurred while generating the summary of this thread: {e}",
             },
-        ],
-    }
+        },
+    ]
+    return _build_proofreading_result_modal(
+        private_metadata=payload["private_metadata"],
+        blocks=blocks,
+    )
 
 
 def build_proofreading_result_no_dm_button_modal(
@@ -664,7 +620,7 @@ def build_from_scratch_modal() -> dict:
     }
 
 
-def build_from_scratch_wip_modal(text: str) -> dict:
+def _build_from_scratch_modal(section_text: str) -> dict:
     return {
         "type": "modal",
         "callback_id": "chat-from-scratch",
@@ -673,13 +629,14 @@ def build_from_scratch_wip_modal(text: str) -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\nWorking on this now ... :hourglass:",
-                },
+                "text": {"type": "mrkdwn", "text": section_text},
             },
         ],
     }
+
+
+def build_from_scratch_wip_modal(text: str) -> dict:
+    return _build_from_scratch_modal(f"{text}\n\nWorking on this now ... :hourglass:")
 
 
 def build_from_scratch_result_modal(
@@ -687,55 +644,15 @@ def build_from_scratch_result_modal(
     text: str,
     result: str,
 ) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "chat-from-scratch",
-        "title": {"type": "plain_text", "text": "ChatGPT"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\n{result}",
-                },
-            },
-        ],
-    }
+    return _build_from_scratch_modal(f"{text}\n\n{result}")
 
 
 def build_from_scratch_timeout_modal(text: str) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "chat-from-scratch",
-        "title": {"type": "plain_text", "text": "ChatGPT"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}",
-                },
-            },
-        ],
-    }
+    return _build_from_scratch_modal(f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}")
 
 
 def build_from_scratch_error_modal(*, text: str, e: Exception) -> dict:
-    return {
-        "type": "modal",
-        "callback_id": "chat-from-scratch",
-        "title": {"type": "plain_text", "text": "ChatGPT"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "blocks": [
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\n:warning: My apologies! "
-                    f"An error occurred while generating the summary of this thread: {e}",
-                },
-            },
-        ],
-    }
+    return _build_from_scratch_modal(
+        f"{text}\n\n:warning: My apologies! "
+        f"An error occurred while generating the summary of this thread: {e}"
+    )
