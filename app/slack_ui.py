@@ -223,6 +223,7 @@ def build_home_tab(
             "* Start",
             "* Chat Templates",
             "* Configuration",
+            "* Can you generate an image as I instruct you?",
         ]
     )
     translated_sentences = list(
@@ -242,6 +243,7 @@ def build_home_tab(
     start = translated_sentences[4]
     chat_templates = translated_sentences[5]
     configuration = translated_sentences[6]
+    image_generation = translated_sentences[7]
 
     blocks = []
     if single_workspace_mode is False:
@@ -281,6 +283,16 @@ def build_home_tab(
                         "text": {"type": "plain_text", "text": start},
                         "value": proofreading,
                         "action_id": "templates-proofread",
+                    },
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": image_generation},
+                    "accessory": {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": start},
+                        "value": image_generation,
+                        "action_id": "templates-image-generation",
                     },
                 },
                 {
@@ -560,6 +572,7 @@ def build_proofreading_error_modal(
     *,
     payload: dict,
     text: str,
+    e: Exception,
 ) -> dict:
     blocks = [
         {
@@ -590,6 +603,137 @@ def build_proofreading_result_no_dm_button_modal(
         "close": {"type": "plain_text", "text": "Close"},
         "private_metadata": private_metadata,
         "blocks": blocks,
+    }
+
+
+#
+# Image generation
+#
+
+
+def build_image_generation_input_modal(prompt: str) -> dict:
+    size_options = [
+        {"text": {"type": "plain_text", "text": v}, "value": v}
+        for v in ["1024x1024", "1792x1024", "1024x1792"]
+    ]
+    quality_options = [
+        {"text": {"type": "plain_text", "text": v}, "value": v}
+        for v in ["standard", "hd"]
+    ]
+    style_options = [
+        {"text": {"type": "plain_text", "text": v}, "value": v}
+        for v in ["vivid", "natural"]
+    ]
+    return {
+        "type": "modal",
+        "callback_id": "image-generation",
+        "title": {"type": "plain_text", "text": "Image Generation"},
+        "submit": {"type": "plain_text", "text": "Submit"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": prompt},
+            },
+            {
+                "type": "input",
+                "block_id": "image_generation_prompt",
+                "label": {"type": "plain_text", "text": "Prompt"},
+                "element": {"type": "plain_text_input", "action_id": "input"},
+            },
+            # https://platform.openai.com/docs/api-reference/images/create
+            {
+                "type": "input",
+                "block_id": "size",
+                "label": {"type": "plain_text", "text": "Size"},
+                "element": {
+                    "type": "static_select",
+                    "options": size_options,
+                    "initial_option": size_options[0],
+                    "action_id": "input",
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "quality",
+                "label": {"type": "plain_text", "text": "Quality"},
+                "element": {
+                    "type": "static_select",
+                    "options": quality_options,
+                    "initial_option": quality_options[0],
+                    "action_id": "input",
+                },
+            },
+            {
+                "type": "input",
+                "block_id": "style",
+                "label": {"type": "plain_text", "text": "Style"},
+                "element": {
+                    "type": "static_select",
+                    "options": style_options,
+                    "initial_option": style_options[0],
+                    "action_id": "input",
+                },
+            },
+        ],
+    }
+
+
+def build_image_generation_wip_modal() -> dict:
+    return build_image_generation_text_modal("Working on this now ... :hourglass:")
+
+
+def build_image_generation_result_modal(
+    *,
+    prompt: str,
+    size: str,
+    quality: str,
+    style: str,
+    spent_seconds: str,
+    image_url: str,
+    model: str,
+) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "image-generation",
+        "title": {"type": "plain_text", "text": "Image Generation"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f">{prompt} (model: {model}, size: {size}, quality: {quality}, style: {style})\n\n"
+                    f"Here is the image content URL generated by the above prompt "
+                    f"(time spent: {spent_seconds} seconds):"
+                    f" <{image_url}|Click>",
+                },
+            },
+            {
+                "type": "image",
+                "title": {
+                    "type": "plain_text",
+                    "text": f"This image was generated using ChatGPT's {model} model",
+                },
+                "image_url": image_url,
+                "alt_text": f"Generated by {model}",
+            },
+        ],
+    }
+
+
+def build_image_generation_text_modal(section_text: str) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "image-generation",
+        "title": {"type": "plain_text", "text": "Image Generation"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": section_text},
+            },
+        ],
     }
 
 
