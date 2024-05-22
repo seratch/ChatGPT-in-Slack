@@ -2,12 +2,10 @@ import json
 import logging
 import re
 import time
-from typing import Optional, List
 
 from openai import APITimeoutError
 from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
-from slack_sdk.errors import SlackApiError
 from slack_sdk.web import WebClient
 
 from app.env import (
@@ -28,6 +26,7 @@ from app.openai_ops import (
     generate_proofreading_result,
     generate_chatgpt_response,
 )
+from app.slack_constants import DEFAULT_LOADING_TEXT, TIMEOUT_ERROR_MESSAGE
 from app.slack_ops import (
     find_parent_message,
     is_this_app_mentioned,
@@ -38,7 +37,27 @@ from app.slack_ops import (
     can_send_image_url_to_openai,
 )
 
-from app.utils import redact_string
+from app.sensitive_info_redaction import redact_string
+from app.slack_ui import (
+    build_proofreading_input_modal,
+    build_proofreading_wip_modal,
+    build_summarize_option_modal,
+    build_summarize_wip_modal,
+    build_summarize_message_modal,
+    build_summarize_result_modal,
+    build_summarize_timeout_error_modal,
+    build_summarize_error_modal,
+    build_proofreading_result_modal,
+    build_proofreading_timeout_error_modal,
+    build_proofreading_error_modal,
+    build_proofreading_result_no_dm_button_modal,
+    build_from_scratch_modal,
+    build_from_scratch_wip_modal,
+    build_from_scratch_result_modal,
+    build_from_scratch_timeout_modal,
+    build_from_scratch_error_modal,
+)
+
 
 #
 # Listener functions
@@ -47,15 +66,6 @@ from app.utils import redact_string
 
 def just_ack(ack: Ack):
     ack()
-
-
-TIMEOUT_ERROR_MESSAGE = (
-    f":warning: Apologies! It seems that OpenAI didn't respond within the {OPENAI_TIMEOUT_SECONDS}-second timeframe. "
-    "Please try your request again later. "
-    "If you wish to extend the timeout limit, "
-    "you may consider deploying this app with customized settings on your infrastructure. :bow:"
-)
-DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
 
 
 #
@@ -506,126 +516,9 @@ def show_summarize_option_modal(
     body: dict,
     context: BoltContext,
 ):
-    openai_api_key = context.get("OPENAI_API_KEY")
-    prompt = translate(
-        openai_api_key=openai_api_key,
-        context=context,
-        text=(
-            "All replies posted in a Slack thread will be provided below. "
-            "Could you summarize the discussion in 200 characters or less?"
-        ),
-    )
-    thread_ts = body.get("message").get("thread_ts", body.get("message").get("ts"))
-    where_to_display_options = [
-        {
-            "text": {
-                "type": "plain_text",
-                "text": "Here, on this modal",
-            },
-            "value": "modal",
-        },
-        {
-            "text": {
-                "type": "plain_text",
-                "text": "As a reply in the thread",
-            },
-            "value": "reply",
-        },
-    ]
-    is_error = False
-    blocks = []
-    try:
-        # Test if this bot is in the channel
-        client.conversations_replies(
-            channel=context.channel_id,
-            ts=thread_ts,
-            limit=1,
-        )
-        blocks = [
-            {
-                "type": "input",
-                "block_id": "where-to-share-summary",
-                "label": {
-                    "type": "plain_text",
-                    "text": "How would you like to see the summary?",
-                },
-                "element": {
-                    "action_id": "input",
-                    "type": "radio_buttons",
-                    "initial_option": where_to_display_options[0],
-                    "options": where_to_display_options,
-                },
-            },
-            {
-                "type": "input",
-                "block_id": "prompt",
-                "element": {
-                    "type": "plain_text_input",
-                    "action_id": "input",
-                    "multiline": True,
-                    "initial_value": prompt,
-                },
-                "label": {
-                    "type": "plain_text",
-                    "text": "Customize the prompt as you prefer:",
-                },
-            },
-            {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": "Note that after the instruction you provide, this app will append all the replies in the thread.",
-                    }
-                ],
-            },
-        ]
-    except SlackApiError as e:
-        is_error = True
-        error_code = e.response["error"]
-        if error_code == "not_in_channel":
-            blocks = [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": "It appears that this app's bot user is not a member of the specified channel. "
-                        f"Could you please invite <@{context.bot_user_id}> to <#{context.channel_id}> "
-                        "to make this app functional?",
-                    },
-                }
-            ]
-        else:
-            blocks = [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"Something is wrong! (error: {error_code})",
-                    },
-                }
-            ]
-
-    view = {
-        "type": "modal",
-        "callback_id": "request-thread-summary",
-        "title": {"type": "plain_text", "text": "Summarize the thread"},
-        "submit": {"type": "plain_text", "text": "Summarize"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "private_metadata": json.dumps(
-            {
-                "thread_ts": thread_ts,
-                "channel": context.channel_id,
-            }
-        ),
-        "blocks": blocks,
-    }
-    if is_error is True:
-        del view["submit"]
-
     client.views_open(
         trigger_id=body.get("trigger_id"),
-        view=view,
+        view=build_summarize_option_modal(context=context, body=body),
     )
     ack()
 
@@ -640,43 +533,9 @@ def ack_summarize_options_modal_submission(
         .get("value", "modal")
     )
     if where_to_display == "modal":
-        ack(
-            response_action="update",
-            view={
-                "type": "modal",
-                "callback_id": "request-thread-summary",
-                "title": {"type": "plain_text", "text": "Summarize the thread"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Got it! Working on the summary now ... :hourglass:",
-                        },
-                    },
-                ],
-            },
-        )
+        ack(response_action="update", view=build_summarize_wip_modal())
     else:
-        ack(
-            response_action="update",
-            view={
-                "type": "modal",
-                "callback_id": "request-thread-summary",
-                "title": {"type": "plain_text", "text": "Summarize the thread"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "plain_text",
-                            "text": "Got it! Once the summary is ready, I will post it in the thread.",
-                        },
-                    },
-                ],
-            },
-        )
+        ack(response_action="update", view=build_summarize_message_modal())
 
 
 def prepare_and_share_thread_summary(
@@ -717,21 +576,10 @@ def prepare_and_share_thread_summary(
         if where_to_display == "modal":
             client.views_update(
                 view_id=payload["id"],
-                view={
-                    "type": "modal",
-                    "callback_id": "request-thread-summary",
-                    "title": {"type": "plain_text", "text": "Summarize the thread"},
-                    "close": {"type": "plain_text", "text": "Close"},
-                    "blocks": [
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": f"{here_is_summary}\n\n{summary}",
-                            },
-                        },
-                    ],
-                },
+                view=build_summarize_result_modal(
+                    here_is_summary=here_is_summary,
+                    summary=summary,
+                ),
             )
         else:
             client.chat_postMessage(
@@ -742,114 +590,19 @@ def prepare_and_share_thread_summary(
     except (APITimeoutError, TimeoutError):
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "request-thread-summary",
-                "title": {"type": "plain_text", "text": "Summarize the thread"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": TIMEOUT_ERROR_MESSAGE,
-                        },
-                    },
-                ],
-            },
+            view=build_summarize_timeout_error_modal(),
         )
     except Exception as e:
         logger.error(f"Failed to share a thread summary: {e}")
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "request-thread-summary",
-                "title": {"type": "plain_text", "text": "Summarize the thread"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": ":warning: My apologies! "
-                            f"An error occurred while generating the summary of this thread: {e}",
-                        },
-                    },
-                ],
-            },
+            view=build_summarize_error_modal(e),
         )
 
 
 #
 # Proofread user inputs
 #
-
-
-def build_proofreading_input_modal(prompt: str, tone_and_voice: Optional[str]):
-    tone_and_voice_options = [
-        {"text": {"type": "plain_text", "text": persona}, "value": persona}
-        for persona in [
-            "Friendly and humble individual in Slack",
-            "Software developer discussing issues on GitHub",
-            "Engaging yet insightful social media poster",
-            "Customer service representative handling inquiries",
-            "Marketing manager creating a product launch script",
-            "Technical writer documenting software procedures",
-            "Product manager creating a roadmap",
-            "HR manager composing a job description",
-            "Public relations officer drafting statements",
-            "Scientific researcher publicizing findings",
-            "Travel blogger sharing experiences",
-            "Speechwriter crafting a persuasive speech",
-        ]
-    ]
-
-    modal = {
-        "type": "modal",
-        "callback_id": "proofread",
-        "title": {"type": "plain_text", "text": "Proofreading"},
-        "submit": {"type": "plain_text", "text": "Submit"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "private_metadata": json.dumps({"prompt": prompt}),
-        "blocks": [
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": prompt},
-            },
-            {
-                "type": "input",
-                "block_id": "original_text",
-                "label": {"type": "plain_text", "text": "Your Text"},
-                "element": {
-                    "type": "plain_text_input",
-                    "action_id": "input",
-                    "multiline": True,
-                },
-            },
-            {
-                "type": "input",
-                "block_id": "tone_and_voice",
-                "label": {"type": "plain_text", "text": "Tone and voice"},
-                "element": {
-                    "type": "static_select",
-                    "action_id": "input",
-                    "options": tone_and_voice_options,
-                },
-                "optional": True,
-            },
-        ],
-    }
-    if tone_and_voice is not None:
-        selected_option = {
-            "text": {"type": "plain_text", "text": tone_and_voice},
-            "value": tone_and_voice,
-        }
-        modal["blocks"][2]["element"]["initial_option"] = selected_option
-    else:
-        first_option = modal["blocks"][2]["element"]["options"][0]
-        modal["blocks"][2]["element"]["initial_option"] = first_option
-    return modal
 
 
 def start_proofreading(client: WebClient, body: dict, payload: dict):
@@ -866,35 +619,12 @@ def ack_proofreading_modal_submission(
 ):
     original_text = extract_state_value(payload, "original_text").get("value")
     text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
-    modal_view = {
-        "type": "modal",
-        "callback_id": "proofread",
-        "title": {"type": "plain_text", "text": "Proofreading"},
-        "close": {"type": "plain_text", "text": "Close"},
-        "private_metadata": payload["private_metadata"],
-        "blocks": [
-            {
-                "type": "context",
-                "elements": [
-                    {
-                        "type": "mrkdwn",
-                        "text": f"Running OpenAI's *{context['OPENAI_MODEL']}* model:",
-                    },
-                ],
-            },
-            {
-                "type": "section",
-                "text": {
-                    "type": "mrkdwn",
-                    "text": f"{text}\n\nProofreading your input now ... :hourglass:",
-                },
-            },
-        ],
-    }
-    ack(
-        response_action="update",
-        view=modal_view,
+    view = build_proofreading_wip_modal(
+        payload=payload,
+        context=context,
+        text=text,
     )
+    ack(response_action="update", view=view)
 
 
 def display_proofreading_result(
@@ -922,111 +652,23 @@ def display_proofreading_result(
             tone_and_voice=tone_and_voice,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
-        private_metadata = payload["private_metadata"]
-        if tone_and_voice is not None:
-            pm = json.loads(payload["private_metadata"])
-            pm["tone_and_voice"] = tone_and_voice
-            private_metadata = json.dumps(pm)
-
-        modal_view = {
-            "type": "modal",
-            "callback_id": "proofread-result",
-            "title": {"type": "plain_text", "text": "Proofreading"},
-            "submit": {"type": "plain_text", "text": "Try Another"},
-            "close": {"type": "plain_text", "text": "Close"},
-            "private_metadata": private_metadata,
-            "blocks": [
-                {
-                    "type": "context",
-                    "elements": [
-                        {
-                            "type": "mrkdwn",
-                            "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
-                        },
-                    ],
-                },
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"{text}\n\n{result}",
-                    },
-                },
-            ],
-        }
-        if tone_and_voice is not None:
-            modal_view["blocks"].append(
-                {
-                    "type": "context",
-                    "elements": [
-                        {"type": "mrkdwn", "text": f"Tone and voice: {tone_and_voice}"}
-                    ],
-                }
-            )
-
-        modal_view["blocks"].append(
-            {
-                "type": "section",
-                "text": {"type": "mrkdwn", "text": " "},
-                "accessory": {
-                    "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": "Send this result in DM",
-                    },
-                    "value": "clicked",
-                    "action_id": "send-proofread-result-in-dm",
-                },
-            }
+        view = build_proofreading_result_modal(
+            context=context,
+            payload=payload,
+            result=result,
         )
+        client.views_update(view_id=payload["id"], view=view)
 
-        client.views_update(
-            view_id=payload["id"],
-            view=modal_view,
-        )
     except (APITimeoutError, TimeoutError):
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "proofread-result",
-                "title": {"type": "plain_text", "text": "Proofreading"},
-                "submit": {"type": "plain_text", "text": "Try Another"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "private_metadata": payload["private_metadata"],
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}",
-                        },
-                    },
-                ],
-            },
+            view=build_proofreading_timeout_error_modal(payload=payload, text=text),
         )
     except Exception as e:
         logger.exception(f"Failed to share a proofreading result: {e}")
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "proofread-result",
-                "title": {"type": "plain_text", "text": "Proofreading"},
-                "submit": {"type": "plain_text", "text": "Try Another"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "private_metadata": payload["private_metadata"],
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{text}\n\n:warning: My apologies! "
-                            f"An error occurred while generating the summary of this thread: {e}",
-                        },
-                    },
-                ],
-            },
+            view=build_proofreading_error_modal(payload=payload, text=text),
         )
 
 
@@ -1059,18 +701,12 @@ def send_proofreading_result_in_dm(
             )
             # Remove the last block that displays the button
             view_blocks.pop((len(view_blocks) - 1))
-            print(view_blocks)
             client.views_update(
                 view_id=body["view"]["id"],
-                view={
-                    "type": "modal",
-                    "callback_id": "proofread-result",
-                    "title": {"type": "plain_text", "text": "Proofreading"},
-                    "submit": {"type": "plain_text", "text": "Try Another"},
-                    "close": {"type": "plain_text", "text": "Close"},
-                    "private_metadata": view["private_metadata"],
-                    "blocks": view_blocks,
-                },
+                view=build_proofreading_result_no_dm_button_modal(
+                    private_metadata=view["private_metadata"],
+                    blocks=view_blocks,
+                ),
             )
     except Exception as e:
         logger.error(f"Failed to send a DM: {e}")
@@ -1084,25 +720,7 @@ def send_proofreading_result_in_dm(
 def start_chat_from_scratch(client: WebClient, body: dict):
     client.views_open(
         trigger_id=body.get("trigger_id"),
-        view={
-            "type": "modal",
-            "callback_id": "chat-from-scratch",
-            "title": {"type": "plain_text", "text": "ChatGPT"},
-            "submit": {"type": "plain_text", "text": "Submit"},
-            "close": {"type": "plain_text", "text": "Close"},
-            "blocks": [
-                {
-                    "type": "input",
-                    "block_id": "prompt",
-                    "label": {"type": "plain_text", "text": "Prompt"},
-                    "element": {
-                        "type": "plain_text_input",
-                        "action_id": "input",
-                        "multiline": True,
-                    },
-                },
-            ],
-        },
+        view=build_from_scratch_modal(),
     )
 
 
@@ -1112,24 +730,8 @@ def ack_chat_from_scratch_modal_submission(
 ):
     prompt = extract_state_value(payload, "prompt").get("value")
     text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
-    ack(
-        response_action="update",
-        view={
-            "type": "modal",
-            "callback_id": "chat-from-scratch",
-            "title": {"type": "plain_text", "text": "ChatGPT"},
-            "close": {"type": "plain_text", "text": "Close"},
-            "blocks": [
-                {
-                    "type": "section",
-                    "text": {
-                        "type": "mrkdwn",
-                        "text": f"{text}\n\nWorking on this now ... :hourglass:",
-                    },
-                },
-            ],
-        },
-    )
+    view = build_from_scratch_wip_modal(text)
+    ack(response_action="update", view=view)
 
 
 def display_chat_from_scratch_result(
@@ -1150,63 +752,18 @@ def display_chat_from_scratch_result(
             prompt=prompt,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
-        client.views_update(
-            view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "chat-from-scratch",
-                "title": {"type": "plain_text", "text": "ChatGPT"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{text}\n\n{result}",
-                        },
-                    },
-                ],
-            },
-        )
+        view = build_from_scratch_result_modal(text=text, result=result)
+        client.views_update(view_id=payload["id"], view=view)
     except (APITimeoutError, TimeoutError):
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "chat-from-scratch",
-                "title": {"type": "plain_text", "text": "ChatGPT"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{text}\n\n{TIMEOUT_ERROR_MESSAGE}",
-                        },
-                    },
-                ],
-            },
+            view=build_from_scratch_timeout_modal(text),
         )
     except Exception as e:
         logger.error(f"Failed to share a thread summary: {e}")
         client.views_update(
             view_id=payload["id"],
-            view={
-                "type": "modal",
-                "callback_id": "chat-from-scratch",
-                "title": {"type": "plain_text", "text": "ChatGPT"},
-                "close": {"type": "plain_text", "text": "Close"},
-                "blocks": [
-                    {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": f"{text}\n\n:warning: My apologies! "
-                            f"An error occurred while generating the summary of this thread: {e}",
-                        },
-                    },
-                ],
-            },
+            view=build_from_scratch_error_modal(text=text, e=e),
         )
 
 

@@ -1,6 +1,7 @@
 from typing import Optional
 
-from openai import OpenAI, AzureOpenAI
+from openai import OpenAI
+from openai.lib.azure import AzureOpenAI
 from slack_bolt import BoltContext
 
 from .openai_constants import GPT_3_5_TURBO_0613_MODEL
