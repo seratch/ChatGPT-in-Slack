@@ -17,7 +17,7 @@ from app.env import (
     OPENAI_DEPLOYMENT_ID,
     OPENAI_FUNCTION_CALL_MODULE_NAME,
 )
-from app.slack_ops import build_home_tab
+from app.slack_ui import build_home_tab
 
 
 if __name__ == "__main__":

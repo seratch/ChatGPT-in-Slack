@@ -3,18 +3,18 @@ import threading
 import time
 import re
 import json
-from typing import List, Dict, Any, Tuple, Optional, Union
+from typing import List, Dict, Tuple, Optional, Union
 from importlib import import_module
 
-from openai import OpenAI, AzureOpenAI
+from openai import OpenAI, Stream
+from openai.lib.azure import AzureOpenAI
 from openai.types import Completion
-from openai._streaming import Stream
 import tiktoken
 
 from slack_bolt import BoltContext
 from slack_sdk.web import WebClient, SlackResponse
 
-from app.markdown import slack_to_markdown, markdown_to_slack
+from app.markdown_conversion import slack_to_markdown, markdown_to_slack
 from app.openai_constants import (
     MAX_TOKENS,
     GPT_3_5_TURBO_MODEL,

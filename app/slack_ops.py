@@ -8,8 +8,7 @@ from slack_sdk.errors import SlackApiError
 from slack_bolt import BoltContext
 
 from app.env import IMAGE_FILE_ACCESS_ENABLED
-from app.i18n import translate
-from app.markdown import slack_to_markdown
+from app.markdown_conversion import slack_to_markdown
 
 
 # ----------------------------
@@ -108,110 +107,6 @@ def update_wip_message(
             "event_payload": {"messages": system_messages, "user": user},
         },
     )
-
-
-# ----------------------------
-# Home tab
-# ----------------------------
-
-DEFAULT_HOME_TAB_MESSAGE = (
-    "To enable this app in this Slack workspace, you need to save your OpenAI API key. "
-    "Visit <https://platform.openai.com/account/api-keys|your developer page> to grap your key!"
-)
-
-DEFAULT_HOME_TAB_CONFIGURE_LABEL = "Configure"
-
-
-def build_home_tab(
-    *,
-    openai_api_key: Optional[str],
-    context: BoltContext,
-    message: str = DEFAULT_HOME_TAB_MESSAGE,
-    single_workspace_mode: bool = False,
-) -> dict:
-    original_sentences = "\n".join(
-        [
-            f"* {message}",
-            f"* {DEFAULT_HOME_TAB_CONFIGURE_LABEL}",
-            "* Can you proofread the following sentence without changing its meaning?",
-            "* (Start a chat from scratch)",
-            "* Start",
-            "* Chat Templates",
-            "* Configuration",
-        ]
-    )
-    translated_sentences = list(
-        map(
-            lambda s: s.replace("* ", ""),
-            translate(
-                openai_api_key=openai_api_key,
-                context=context,
-                text=original_sentences,
-            ).split("\n"),
-        )
-    )
-    message = translated_sentences[0]
-    configure_label = translated_sentences[1]
-    proofreading = translated_sentences[2]
-    from_scratch = translated_sentences[3]
-    start = translated_sentences[4]
-    chat_templates = translated_sentences[5]
-    configuration = translated_sentences[6]
-
-    blocks = []
-    if single_workspace_mode is False:
-        blocks.extend(
-            [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*{configuration}*"},
-                },
-                {"type": "divider"},
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": message},
-                    "accessory": {
-                        "action_id": "configure",
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": configure_label},
-                        "style": "primary",
-                        "value": "api_key",
-                    },
-                },
-            ]
-        )
-    if openai_api_key is not None:
-        blocks.extend(
-            [
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*{chat_templates}*"},
-                },
-                {"type": "divider"},
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": proofreading},
-                    "accessory": {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": start},
-                        "value": proofreading,
-                        "action_id": "templates-proofread",
-                    },
-                },
-                {
-                    "type": "section",
-                    "text": {"type": "mrkdwn", "text": from_scratch},
-                    "accessory": {
-                        "type": "button",
-                        "text": {"type": "plain_text", "text": start},
-                        "value": " ",
-                        "action_id": "templates-from-scratch",
-                    },
-                },
-            ]
-        )
-
-    return {"type": "home", "blocks": blocks}
 
 
 # ----------------------------

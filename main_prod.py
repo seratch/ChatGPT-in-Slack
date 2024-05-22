@@ -30,15 +30,10 @@ from app.env import (
     OPENAI_DEPLOYMENT_ID,
     OPENAI_FUNCTION_CALL_MODULE_NAME,
 )
-from app.slack_ops import (
+from app.slack_ui import (
     build_home_tab,
     DEFAULT_HOME_TAB_MESSAGE,
-)
-from app.openai_constants import (
-    GPT_3_5_TURBO_MODEL,
-    GPT_4_MODEL,
-    GPT_4_32K_MODEL,
-    GPT_4O_MODEL,
+    build_configure_modal,
 )
 from app.i18n import translate
 
@@ -179,6 +174,10 @@ def handler(event, context_):
         context["OPENAI_FUNCTION_CALL_MODULE_NAME"] = OPENAI_FUNCTION_CALL_MODULE_NAME
         next_()
 
+    #
+    # Home tab rendering
+    #
+
     @app.event("app_home_opened")
     def render_home_tab(client: WebClient, context: BoltContext):
         message = DEFAULT_HOME_TAB_MESSAGE
@@ -197,78 +196,18 @@ def handler(event, context_):
             ),
         )
 
-    @app.action("configure")
-    def handle_some_action(ack, body: dict, client: WebClient, context: BoltContext):
-        ack()
-        already_set_api_key = context.get("OPENAI_API_KEY")
-        api_key_text = "Save your OpenAI API key:"
-        submit = "Submit"
-        cancel = "Cancel"
-        if already_set_api_key is not None:
-            api_key_text = translate(
-                openai_api_key=already_set_api_key, context=context, text=api_key_text
-            )
-            submit = translate(
-                openai_api_key=already_set_api_key, context=context, text=submit
-            )
-            cancel = translate(
-                openai_api_key=already_set_api_key, context=context, text=cancel
-            )
+    #
+    # Configure
+    #
 
+    @app.action("configure")
+    def handle_configure_button(
+        ack, body: dict, client: WebClient, context: BoltContext
+    ):
+        ack()
         client.views_open(
             trigger_id=body["trigger_id"],
-            view={
-                "type": "modal",
-                "callback_id": "configure",
-                "title": {"type": "plain_text", "text": "OpenAI API Key"},
-                "submit": {"type": "plain_text", "text": submit},
-                "close": {"type": "plain_text", "text": cancel},
-                "blocks": [
-                    {
-                        "type": "input",
-                        "block_id": "api_key",
-                        "label": {"type": "plain_text", "text": api_key_text},
-                        "element": {"type": "plain_text_input", "action_id": "input"},
-                    },
-                    {
-                        "type": "input",
-                        "block_id": "model",
-                        "label": {"type": "plain_text", "text": "OpenAI Model"},
-                        "element": {
-                            "type": "static_select",
-                            "action_id": "input",
-                            "options": [
-                                {
-                                    "text": {
-                                        "type": "plain_text",
-                                        "text": "GPT-3.5 Turbo",
-                                    },
-                                    "value": GPT_3_5_TURBO_MODEL,
-                                },
-                                {
-                                    "text": {"type": "plain_text", "text": "GPT-4 8K"},
-                                    "value": GPT_4_MODEL,
-                                },
-                                {
-                                    "text": {"type": "plain_text", "text": "GPT-4 32K"},
-                                    "value": GPT_4_32K_MODEL,
-                                },
-                                {
-                                    "text": {"type": "plain_text", "text": "GPT-4o"},
-                                    "value": GPT_4O_MODEL,
-                                },
-                            ],
-                            "initial_option": {
-                                "text": {
-                                    "type": "plain_text",
-                                    "text": "GPT-3.5 Turbo",
-                                },
-                                "value": GPT_3_5_TURBO_MODEL,
-                            },
-                        },
-                    },
-                ],
-            },
+            view=build_configure_modal(context),
         )
 
     def validate_api_key_registration(ack: Ack, view: dict, context: BoltContext):
@@ -331,5 +270,8 @@ def handler(event, context_):
         lazy=[save_api_key_registration],
     )
 
+    #
+    # Handle an AWS Lambda event
+    #
     slack_handler = SlackRequestHandler(app=app)
     return slack_handler.handle(event, context_)
