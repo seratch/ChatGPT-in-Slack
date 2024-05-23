@@ -62,7 +62,7 @@ Here is an exmaple of proofreading on Home tab:
 
 You can generate an image just by giving a prompt to the DALL-E 3 model too:
 
-<img width="500" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/8c116ead-8c95-490d-80ce-c011de097088">
+<img width="500" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/3b6942d2-a370-4c5b-ae11-ea18922c3729">
 
 
 To ask any other questions, you can use the from-scratch modal instead:
