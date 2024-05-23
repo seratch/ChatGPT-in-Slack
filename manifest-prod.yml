@@ -31,6 +31,7 @@ oauth_config:
       - users:read
       - files:read
       - files:write
+      - im:write
 settings:
   event_subscriptions:
     request_url: https://TODO.amazonaws.com/slack/events

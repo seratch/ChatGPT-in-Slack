@@ -3,6 +3,7 @@ import logging
 import re
 import time
 
+import requests
 from openai import APITimeoutError
 from slack_bolt import App, Ack, BoltContext, BoltResponse
 from slack_bolt.request.payload_utils import is_event
@@ -756,6 +757,9 @@ def display_image_generation_result(
         style = (
             extract_state_value(payload, "style").get("selected_option").get("value")
         )
+        model = context.get(
+            "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
+        )
 
         start_time = time.time()
         image_url = generate_image(
@@ -766,27 +770,41 @@ def display_image_generation_result(
             style=style,
             timeout_seconds=OPENAI_TIMEOUT_SECONDS,
         )
-        spent_seconds = time.time() - start_time
+        spent_seconds = str(round((time.time() - start_time), 2))
         logger.debug(
             f"Image generated (url: {image_url} , spent time: {spent_seconds})"
         )
-        model = context.get(
-            "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
-        )
+
+        image_content = requests.get(image_url).content
+        users = [context.actor_user_id]
+        dm_id = client.conversations_open(users=users)["channel"]["id"]
         text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
-        blocks = build_image_generation_result_blocks(
-            text=text,
-            spent_seconds=str(round(spent_seconds, 2)),
-            image_url=image_url,
-            model=model,
-            size=size,
-            quality=quality,
-            style=style,
+        message_text = (
+            "Here's a new image generated using this prompt:\n"
+            f"{text}\n"
+            f"model: {model}, size: {size}, quality: {quality}, style: {style}, time spent: {spent_seconds} s"
         )
-        client.chat_postMessage(
-            channel=context.actor_user_id,
-            text=f"Here is the generated image URL: {image_url}",
-            blocks=blocks,
+        upload = client.files_upload_v2(
+            filename="generated_image.png",
+            file=image_content,
+            alt_txt=f"Generated using {model}",
+            title=f"Generated using {model}",
+            initial_comment=message_text,
+            channel=dm_id,
+        )
+        file_id = upload["files"][0]["id"]
+        uploaded_file_url = upload["files"][0]["url_private"]
+        shared = False
+        time.sleep(1.5)
+        while not shared:
+            latest_file_info = client.files_info(file=file_id)
+            shares = latest_file_info.get("file").get("shares")
+            shared = shares and len(shares.get("private")) > 0
+            if not shared:
+                time.sleep(0.5)
+
+        blocks = build_image_generation_result_blocks(
+            text=message_text, image_url=uploaded_file_url, model=model
         )
         client.views_update(
             view_id=payload["id"],
@@ -807,15 +825,15 @@ def display_image_generation_result(
         client.views_update(
             view_id=payload["id"],
             view=build_image_generation_text_modal(
-                f"{text}\n\n:warning: My apologies! "
-                f"An error occurred while calling Slack APIs: {e}"
+                f"{text}\n\n:warning: *My apologies!* "
+                f"An error occurred while calling Slack APIs: `{e}`"
             ),
         )
     except Exception as e:
         logger.exception(f"Failed to share a generated image: {e}")
         error = (
-            f"{text}\n\n:warning: My apologies! "
-            f"An error occurred while generating an image: {e}"
+            f"{text}\n\n:warning: *My apologies!* "
+            f"An error occurred while generating an image: `{e}`"
         )
         client.chat_postMessage(
             channel=context.actor_user_id,
