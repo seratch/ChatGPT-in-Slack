@@ -174,7 +174,7 @@ def _build_summary_result_modal(section_text: str) -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": section_text},
+                "text": {"type": "mrkdwn", "text": section_text or " "},
             },
         ],
     }
@@ -251,16 +251,16 @@ def build_home_tab(
             [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*{configuration}*"},
+                    "text": {"type": "mrkdwn", "text": f"*{configuration}* "},
                 },
                 {"type": "divider"},
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": message},
+                    "text": {"type": "mrkdwn", "text": message or " "},
                     "accessory": {
                         "action_id": "configure",
                         "type": "button",
-                        "text": {"type": "plain_text", "text": configure_label},
+                        "text": {"type": "plain_text", "text": configure_label or " "},
                         "style": "primary",
                         "value": "api_key",
                     },
@@ -272,35 +272,35 @@ def build_home_tab(
             [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*{chat_templates}*"},
+                    "text": {"type": "mrkdwn", "text": f"*{chat_templates}* "},
                 },
                 {"type": "divider"},
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": proofreading},
+                    "text": {"type": "mrkdwn", "text": proofreading or " "},
                     "accessory": {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": start},
-                        "value": proofreading,
+                        "text": {"type": "plain_text", "text": start or " "},
+                        "value": proofreading or " ",
                         "action_id": "templates-proofread",
                     },
                 },
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": image_generation},
+                    "text": {"type": "mrkdwn", "text": image_generation or " "},
                     "accessory": {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": start},
-                        "value": image_generation,
+                        "text": {"type": "plain_text", "text": start or " "},
+                        "value": image_generation or " ",
                         "action_id": "templates-image-generation",
                     },
                 },
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": from_scratch},
+                    "text": {"type": "mrkdwn", "text": from_scratch or " "},
                     "accessory": {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": start},
+                        "text": {"type": "plain_text", "text": start or " "},
                         "value": " ",
                         "action_id": "templates-from-scratch",
                     },
@@ -355,8 +355,15 @@ def build_configure_modal(context: BoltContext) -> dict:
             {
                 "type": "input",
                 "block_id": "api_key",
-                "label": {"type": "plain_text", "text": api_key_text},
-                "element": {"type": "plain_text_input", "action_id": "input"},
+                "label": {"type": "plain_text", "text": api_key_text or " "},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input",
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "Paste your API key starting with sk-...",
+                    },
+                },
             },
             {
                 "type": "input",
@@ -407,7 +414,7 @@ def build_proofreading_input_modal(prompt: str, tone_and_voice: Optional[str]) -
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": prompt},
+                "text": {"type": "mrkdwn", "text": prompt or " "},
             },
             {
                 "type": "input",
@@ -633,7 +640,7 @@ def build_image_generation_input_modal(prompt: str) -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": prompt},
+                "text": {"type": "mrkdwn", "text": prompt or " "},
             },
             {
                 "type": "input",
