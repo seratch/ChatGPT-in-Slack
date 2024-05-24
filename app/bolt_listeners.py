@@ -139,7 +139,9 @@ def respond_to_app_mention(
                 }
                 content = [message_text_item]
 
-                if can_send_image_url_to_openai(context):
+                if reply.get("bot_id") is None and can_send_image_url_to_openai(
+                    context
+                ):
                     append_image_content_if_exists(
                         bot_token=context.bot_token,
                         files=reply.get("files"),
@@ -168,7 +170,7 @@ def respond_to_app_mention(
             }
             content = [message_text_item]
 
-            if can_send_image_url_to_openai(context):
+            if payload.get("bot_id") is None and can_send_image_url_to_openai(context):
                 append_image_content_if_exists(
                     bot_token=context.bot_token,
                     files=payload.get("files"),
@@ -398,7 +400,7 @@ def respond_to_new_message(
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                 }
             ]
-            if can_send_image_url_to_openai(context):
+            if reply.get("bot_id") is None and can_send_image_url_to_openai(context):
                 append_image_content_if_exists(
                     bot_token=context.bot_token,
                     files=reply.get("files"),
