@@ -230,11 +230,15 @@ def build_home_tab(
     translated_sentences = list(
         map(
             lambda s: s.replace("* ", ""),
-            translate(
-                openai_api_key=openai_api_key,
-                context=context,
-                text=original_sentences,
-            ).split("\n"),
+            filter(
+                # Consider that translation results might contain extra newlines
+                lambda s: s != "",
+                translate(
+                    openai_api_key=openai_api_key,
+                    context=context,
+                    text=original_sentences,
+                ).split("\n"),
+            ),
         )
     )
     message = translated_sentences[0]
