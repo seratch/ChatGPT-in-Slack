@@ -143,6 +143,10 @@ When you make changes to the code in this project, please keep these points in m
 - When you have the chance, please write some unit tests. Especially when you touch internal utility modules (e.g., `app/markdown.py` etc.) and add/edit the code that do not call any web APIs, writing tests should be relatively easy.
 - Before committing your changes, be sure to run `./validate.sh`. The script runs black (code formatter), flake8 and pytype (static code analyzers).
 
+## Related Projects
+
+- [iwamot/collmbo](https://github.com/iwamot/collmbo): @iwamot's forked project, which supports other LLM providers in addition to OpenAI by leveraging [LiteLLM](https://github.com/BerriAI/litellm)
+
 ## The License
 
 The MIT License
