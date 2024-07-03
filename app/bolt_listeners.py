@@ -16,7 +16,6 @@ from app.env import (
     OPENAI_TIMEOUT_SECONDS,
     SYSTEM_TEXT,
     TRANSLATE_MARKDOWN,
-    IMAGE_FILE_ACCESS_ENABLED,
     OPENAI_IMAGE_GENERATION_MODEL,
 )
 from app.i18n import translate
@@ -1049,20 +1048,6 @@ def display_chat_from_scratch_result(
 
 
 def register_listeners(app: App):
-
-    # TODO: remove this workaround once bolt-python attaches scopes to context under the hood
-    @app.middleware
-    def attach_bot_scopes(client: WebClient, context: BoltContext, next_):
-        if (
-            # the bot_scopes is used for #can_access_file_content method calls
-            IMAGE_FILE_ACCESS_ENABLED is True
-            and context.authorize_result is not None
-            and context.authorize_result.bot_scopes is None
-        ):
-            auth_test = client.auth_test(token=context.bot_token)
-            scopes = auth_test.headers.get("x-oauth-scopes", [])
-            context.authorize_result.bot_scopes = scopes
-        next_()
 
     # Chat with the bot
     app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
