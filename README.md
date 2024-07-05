@@ -105,6 +105,10 @@ export TRANSLATE_MARKDOWN=true
 export REDACTION_ENABLED=true
 # Optional: When the string is "true", this app shares image files with OpenAI (default: false)
 export IMAGE_FILE_ACCESS_ENABLED=true
+# Optional: Specify allowed channels for bot usage (comma-separated list of channel IDs)
+export ALLOWED_CHANNELS=C12345678,C23456789
+# Optional: Specify allowed users for bot usage (comma-separated list of user IDs)
+export ALLOWED_USERS=U12345678,U23456789
 
 # To use Azure OpenAI, set the following optional environment variables according to your environment
 # default: None
