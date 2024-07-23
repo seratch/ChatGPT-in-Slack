@@ -37,6 +37,8 @@ from app.openai_constants import (
     GPT_4_32K_0613_MODEL,
     GPT_4O_MODEL,
     GPT_4O_2024_05_13_MODEL,
+    GPT_4O_MINI_MODEL,
+    GPT_4O_MINI_2024_07_18_MODEL,
     MODEL_TOKENS,
     MODEL_FALLBACKS,
 )
@@ -342,6 +344,9 @@ def context_length(
     elif model == GPT_4O_MODEL:
         # Note that GPT_4O_MODEL may change over time. Return context length assuming GPT_4O_2024_05_13_MODEL.
         return context_length(model=GPT_4O_2024_05_13_MODEL)
+    elif model == GPT_4O_MINI_MODEL:
+        # Note that GPT_4O_MINI_MODEL may change over time. Return context length assuming GPT_4O_MINI_2024_07_18_MODEL.
+        return context_length(model=GPT_4O_MINI_2024_07_18_MODEL)
     elif model == GPT_3_5_TURBO_0301_MODEL or model == GPT_3_5_TURBO_0613_MODEL:
         return 4096
     elif (
@@ -359,6 +364,7 @@ def context_length(
         or model == GPT_4_0125_PREVIEW_MODEL
         or model == GPT_4_TURBO_2024_04_09_MODEL
         or model == GPT_4O_2024_05_13_MODEL
+        or model == GPT_4O_MINI_2024_07_18_MODEL
     ):
         return 128000
     else:

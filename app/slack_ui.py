@@ -8,6 +8,7 @@ from app.openai_constants import (
     GPT_4_MODEL,
     GPT_4_32K_MODEL,
     GPT_4O_MODEL,
+    GPT_4O_MINI_MODEL,
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE
 from app.slack_ops import extract_state_value
@@ -359,6 +360,10 @@ def build_configure_modal(context: BoltContext) -> dict:
         {
             "text": {"type": "plain_text", "text": "GPT-4o"},
             "value": GPT_4O_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4o-mini"},
+            "value": GPT_4O_MINI_MODEL,
         },
     ]
     return {
