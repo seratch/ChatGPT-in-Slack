@@ -90,6 +90,14 @@ def just_ack(ack: Ack):
 # Chat with the bot
 #
 
+def is_bot_allowed(channel_id: str, user_id: str) -> bool:
+    allowed_channels = os.environ.get("ALLOWED_CHANNELS", "").split(",")
+    allowed_users = os.environ.get("ALLOWED_USERS", "").split(",")
+    if (allowed_channels and channel_id not in allowed_channels) or (
+        allowed_users and user_id not in allowed_users
+    ):
+        return False
+    return True
 
 def respond_to_app_mention(
     context: BoltContext,
@@ -97,6 +105,9 @@ def respond_to_app_mention(
     client: WebClient,
     logger: logging.Logger,
 ):
+    if not is_bot_allowed(payload.get("channel_id"), payload.get("user_id")):
+        return
+
     thread_ts = payload.get("thread_ts")
     if thread_ts is not None:
         parent_message = find_parent_message(client, context.channel_id, thread_ts)
@@ -280,6 +291,9 @@ def respond_to_new_message(
     client: WebClient,
     logger: logging.Logger,
 ):
+    if not is_bot_allowed(payload.get("channel_id"), payload.get("user_id")):
+        return
+
     if payload.get("bot_id") is not None and payload.get("bot_id") != context.bot_id:
         # Skip a new message by a different app
         return

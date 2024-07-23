@@ -75,5 +75,19 @@ if __name__ == "__main__":
         context["OPENAI_FUNCTION_CALL_MODULE_NAME"] = OPENAI_FUNCTION_CALL_MODULE_NAME
         next_()
 
+    @app.middleware
+    def check_access_control(context: BoltContext, payload: dict, next_):
+        allowed_channels = os.environ.get("ALLOWED_CHANNELS", "").split(",")
+        allowed_users = os.environ.get("ALLOWED_USERS", "").split(",")
+        channel_id = payload.get("channel_id")
+        user_id = payload.get("user_id")
+
+        if (allowed_channels and channel_id not in allowed_channels) or (
+            allowed_users and user_id not in allowed_users
+        ):
+            return
+
+        next_()
+
     handler = SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"])
     handler.start()
