@@ -1,9 +1,3 @@
-# Unzip the dependencies managed by serverless-python-requirements
-try:
-    import unzip_requirements  # type:ignore
-except ImportError:
-    pass
-
 #
 # Imports
 #
@@ -38,7 +32,10 @@ from app.slack_ui import (
     build_configure_modal,
 )
 from app.i18n import translate
+from flask import Flask, request
+from dotenv import load_dotenv
 
+load_dotenv()
 #
 # Product deployment (AWS Lambda)
 #
@@ -54,18 +51,21 @@ from app.i18n import translate
 # serverless deploy
 #
 
-import boto3
-from slack_bolt.adapter.aws_lambda import SlackRequestHandler
-from slack_bolt.adapter.aws_lambda.lambda_s3_oauth_flow import LambdaS3OAuthFlow
+# import boto3
+# from slack_bolt.adapter.aws_lambda import SlackRequestHandler
+from google.cloud import storage
+from slack_bolt.adapter.flask import SlackRequestHandler
+# from slack_bolt.adapter.aws_lambda.lambda_s3_oauth_flow import LambdaS3OAuthFlow
 
-SlackRequestHandler.clear_all_log_handlers()
+# SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=SLACK_APP_LOG_LEVEL)
 
-s3_client = boto3.client("s3")
-openai_bucket_name = os.environ["OPENAI_S3_BUCKET_NAME"]
+# s3_client = boto3.client("s3")
+storage_client = storage.Client(project=os.environ["GOOGLE_CLOUD_PROJECT"])
+openai_bucket_name = os.environ["OPENAI_GCS_BUCKET_NAME"]
 
-client_template = WebClient()
-client_template.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
+# client_template = WebClient()
+# client_template.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
 
 
 def register_revocation_handlers(app: App):
@@ -91,7 +91,9 @@ def register_revocation_handlers(app: App):
                 team_id=context.team_id,
             )
             try:
-                s3_client.delete_object(Bucket=openai_bucket_name, Key=context.team_id)
+                bucket = storage_client.bucket(openai_bucket_name)
+                blob = bucket.blob(context.team_id)
+                blob.delete()
             except Exception as e:
                 logger.error(
                     f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})"
@@ -107,51 +109,20 @@ def register_revocation_handlers(app: App):
             team_id=context.team_id,
         )
         try:
-            s3_client.delete_object(Bucket=openai_bucket_name, Key=context.team_id)
+            bucket = storage_client.bucket(openai_bucket_name)
+            blob = bucket.blob(context.team_id)
+            blob.delete()
         except Exception as e:
             logger.error(
                 f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})"
             )
 
-
-def handler(event, context_):
-    app = App(
-        process_before_response=True,
-        before_authorize=before_authorize,
-        oauth_flow=LambdaS3OAuthFlow(),
-        client=client_template,
-    )
-    app.oauth_flow.settings.install_page_rendering_enabled = False
-    register_listeners(app)
-    register_revocation_handlers(app)
-
-    if USE_SLACK_LANGUAGE is True:
-
-        @app.middleware
-        def set_locale(
-            context: BoltContext,
-            client: WebClient,
-            logger: logging.Logger,
-            next_,
-        ):
-            bot_scopes = context.authorize_result.bot_scopes
-            if bot_scopes is not None and "users:read" in bot_scopes:
-                user_id = context.actor_user_id or context.user_id
-                try:
-                    user_info = client.users_info(user=user_id, include_locale=True)
-                    context["locale"] = user_info.get("user", {}).get("locale")
-                except SlackApiError as e:
-                    logger.debug(f"Failed to fetch user info due to {e}")
-                    pass
-            next_()
-
     @app.middleware
-    def set_s3_openai_api_key(context: BoltContext, next_):
+    def set_gcs_openai_api_key(context: BoltContext, next_):
         try:
-            s3_response = s3_client.get_object(
-                Bucket=openai_bucket_name, Key=context.team_id
-            )
-            config_str: str = s3_response["Body"].read().decode("utf-8")
+            bucket = storage_client.bucket(openai_bucket_name)
+            blob = bucket.blob(context.team_id)
+            config_str = blob.download_as_text()
             if config_str.startswith("{"):
                 config = json.loads(config_str)
                 context["OPENAI_API_KEY"] = config.get("api_key")
@@ -190,7 +161,9 @@ def handler(event, context_):
     def render_home_tab(client: WebClient, context: BoltContext):
         message = DEFAULT_HOME_TAB_MESSAGE
         try:
-            s3_client.get_object(Bucket=openai_bucket_name, Key=context.team_id)
+            bucket = storage_client.bucket(openai_bucket_name)
+            blob = bucket.blob(context.team_id)
+            blob.download_as_text()
             message = "This app is ready to use in this workspace :raised_hands:"
         except:  # noqa: E722
             pass
@@ -265,10 +238,10 @@ def handler(event, context_):
         try:
             client = OpenAI(api_key=api_key)
             client.models.retrieve(model=model)
-            s3_client.put_object(
-                Bucket=openai_bucket_name,
-                Key=context.team_id,
-                Body=json.dumps({"api_key": api_key, "model": model}),
+            bucket = storage_client.bucket(openai_bucket_name)
+            blob = bucket.blob(context.team_id)
+            blob.upload_from_string(
+                json.dumps({"api_key": api_key, "model": model})
             )
         except Exception as e:
             logger.exception(e)
@@ -278,8 +251,49 @@ def handler(event, context_):
         lazy=[save_api_key_registration],
     )
 
-    #
-    # Handle an AWS Lambda event
-    #
-    slack_handler = SlackRequestHandler(app=app)
-    return slack_handler.handle(event, context_)
+app = App(
+    signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
+    token=os.environ.get("SLACK_BOT_TOKEN"),
+    request_verification_enabled=False,
+    # process_before_response=True,
+    # before_authorize=before_authorize,
+    # client=client_template,
+)
+register_listeners(app)
+register_revocation_handlers(app)
+
+if USE_SLACK_LANGUAGE is True:
+
+    @app.middleware
+    def set_locale(
+        context: BoltContext,
+        client: WebClient,
+        logger: logging.Logger,
+        next_,
+    ):
+        bot_scopes = context.authorize_result.bot_scopes
+        if bot_scopes is not None and "users:read" in bot_scopes:
+            user_id = context.actor_user_id or context.user_id
+            try:
+                user_info = client.users_info(user=user_id, include_locale=True)
+                context["locale"] = user_info.get("user", {}).get("locale")
+            except SlackApiError as e:
+                logger.debug(f"Failed to fetch user info due to {e}")
+                pass
+            next_()
+
+flask_app = Flask(__name__)
+handler = SlackRequestHandler(app)
+
+
+@flask_app.route("/health")
+def health_check():
+    return "OK", 200
+
+
+@flask_app.route("/slack/events", methods=["POST"])
+def slack_events():
+    return handler.handle(request)
+
+if __name__ == "__main__":
+    flask_app.run(debug=True, host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))
