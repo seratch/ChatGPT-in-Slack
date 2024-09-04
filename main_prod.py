@@ -254,9 +254,9 @@ def register_revocation_handlers(app: App):
 app = App(
     signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
     token=os.environ.get("SLACK_BOT_TOKEN"),
-    request_verification_enabled=False,
+    before_authorize=before_authorize,
+    # request_verification_enabled=False,
     # process_before_response=True,
-    # before_authorize=before_authorize,
     # client=client_template,
 )
 register_listeners(app)
