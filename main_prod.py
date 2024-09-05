@@ -9,7 +9,9 @@ from openai import OpenAI
 
 from slack_sdk.web import WebClient
 from slack_sdk.errors import SlackApiError
-from slack_sdk.http_retry.builtin_handlers import RateLimitErrorRetryHandler
+from slack_bolt.oauth.oauth_settings import OAuthSettings
+from slack_sdk.oauth.installation_store import FileInstallationStore
+from slack_sdk.oauth.state_store import FileOAuthStateStore
 from slack_bolt import App, Ack, BoltContext
 
 from app.bolt_listeners import register_listeners, before_authorize
@@ -33,40 +35,17 @@ from app.slack_ui import (
 )
 from app.i18n import translate
 from flask import Flask, request
-from dotenv import load_dotenv
 
-load_dotenv()
-#
-# Product deployment (AWS Lambda)
-#
-# export SLACK_CLIENT_ID=
-# export SLACK_CLIENT_SECRET=
-# export SLACK_SIGNING_SECRET=
-# export SLACK_SCOPES=commands,app_mentions:read,channels:history,groups:history,im:history,mpim:history,chat:write.public,chat:write,users:read,files:read,files:write,im:write
-# export SLACK_INSTALLATION_S3_BUCKET_NAME=
-# export SLACK_STATE_S3_BUCKET_NAME=
-# export OPENAI_S3_BUCKET_NAME=
-# npm install -g serverless
-# serverless plugin install -n serverless-python-requirements
-# serverless deploy
-#
-
-# import boto3
-# from slack_bolt.adapter.aws_lambda import SlackRequestHandler
 from google.cloud import storage
 from slack_bolt.adapter.flask import SlackRequestHandler
-# from slack_bolt.adapter.aws_lambda.lambda_s3_oauth_flow import LambdaS3OAuthFlow
 
-# SlackRequestHandler.clear_all_log_handlers()
 logging.basicConfig(format="%(asctime)s %(message)s", level=SLACK_APP_LOG_LEVEL)
 
-# s3_client = boto3.client("s3")
 storage_client = storage.Client(project=os.environ["GOOGLE_CLOUD_PROJECT"])
 openai_bucket_name = os.environ["OPENAI_GCS_BUCKET_NAME"]
 
-# client_template = WebClient()
-# client_template.retry_handlers.append(RateLimitErrorRetryHandler(max_retry_count=2))
-
+# Use the mounted path for installation and state stores
+MOUNT_PATH = os.environ.get("MOUNT_PATH", "/mnt/data")
 
 def register_revocation_handlers(app: App):
     # Handle uninstall events and token revocations
@@ -117,8 +96,14 @@ def register_revocation_handlers(app: App):
                 f"Failed to delete an OpenAI auth key: (team_id: {context.team_id}, error: {e})"
             )
 
+    
     @app.middleware
     def set_gcs_openai_api_key(context: BoltContext, next_):
+        """
+        Warning:
+        The configuration with the OpenAI API key will be written to Google Cloud Storage (GCS) as plaintext.
+        Therefore, secure access to GCS is required to protect the API key from unauthorized access.
+        """
         try:
             bucket = storage_client.bucket(openai_bucket_name)
             blob = bucket.blob(context.team_id)
@@ -255,9 +240,30 @@ app = App(
     signing_secret=os.environ.get("SLACK_SIGNING_SECRET"),
     token=os.environ.get("SLACK_BOT_TOKEN"),
     before_authorize=before_authorize,
-    # request_verification_enabled=False,
-    # process_before_response=True,
-    # client=client_template,
+    oauth_settings=OAuthSettings(
+        client_id=os.environ["SLACK_CLIENT_ID"],
+        client_secret=os.environ["SLACK_CLIENT_SECRET"],
+        scopes=[
+            "commands",
+            "app_mentions:read",
+            "channels:history",
+            "groups:history",
+            "im:history",
+            "mpim:history",
+            "chat:write.public",
+            "chat:write",
+            "users:read",
+            "files:read",
+            "files:write",
+            "im:write",
+        ],
+        installation_store=FileInstallationStore(
+            base_dir=f"{MOUNT_PATH}/installations"
+        ),
+        state_store=FileOAuthStateStore(
+            expiration_seconds=600, base_dir=f"{MOUNT_PATH}/states"
+        ),
+    ),
 )
 register_listeners(app)
 register_revocation_handlers(app)
@@ -293,6 +299,16 @@ def health_check():
 
 @flask_app.route("/slack/events", methods=["POST"])
 def slack_events():
+    return handler.handle(request)
+
+
+@flask_app.route("/slack/install", methods=["GET"])
+def install():
+    return handler.handle(request)
+
+
+@flask_app.route("/slack/oauth_redirect", methods=["GET"])
+def oauth_redirect():
     return handler.handle(request)
 
 if __name__ == "__main__":

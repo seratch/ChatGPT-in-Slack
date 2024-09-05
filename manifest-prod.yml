@@ -17,7 +17,7 @@ features:
       description: Summarize the discussion in a thread
 oauth_config:
   redirect_urls:
-    - https://TODO.amazonaws.com/slack/oauth_redirect
+    - [URL]/slack/oauth_redirect
   scopes:
     bot:
       - commands
@@ -34,7 +34,7 @@ oauth_config:
       - im:write
 settings:
   event_subscriptions:
-    request_url: https://TODO.amazonaws.com/slack/events
+    request_url: [URL]/slack/events
     bot_events:
       - app_home_opened
       - app_mention
@@ -46,7 +46,7 @@ settings:
       - tokens_revoked
   interactivity:
     is_enabled: true
-    request_url: https://TODO.amazonaws.com/slack/events
+    request_url: [URL]/slack/events
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false
