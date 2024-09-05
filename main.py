@@ -20,7 +20,9 @@ from app.env import (
     OPENAI_IMAGE_GENERATION_MODEL,
 )
 from app.slack_ui import build_home_tab
+from dotenv import load_dotenv
 
+load_dotenv()
 
 if __name__ == "__main__":
     from slack_bolt.adapter.socket_mode import SocketModeHandler
