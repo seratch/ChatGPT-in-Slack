@@ -1,0 +1,27 @@
+[tool.poetry]
+name = "chatgpt-in-slack"
+version = "0.1.0"
+description = ""
+authors = ["Kalanyu Zintus-art <kalanyu.z@smartcontract.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+slack-bolt = ">=1.19.1,<2"
+slack-sdk = ">=3.30.0,<4"
+openai = ">=1.35.9,<2"
+tiktoken = ">=0.7,<0.8"
+urllib3 = "<2"
+pillow = ">=10.4.0,<11"
+requests = ">=2.32,<3"
+python-dotenv = ">=1.0.1,<2.0.0"
+flask = ">=3.0.3,<3.1.0"
+google-cloud-storage = ">=2.18.2,<3.0.0"
+gunicorn = ">=23.0.0,<24.0.0"
+
+[tool.poetry.dev-dependencies]
+black = ">=23.0.0,<24.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
