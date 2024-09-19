@@ -54,7 +54,7 @@ On the Home tab, in addition to the OpenAI API key and model configuration, you 
 <img width="700" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/13a06d0a-225f-4ff4-9e16-a5a95cc2d36b">
 
 
-Here is an exmaple of proofreading on Home tab:
+Here is an example of proofreading on Home tab:
 
 <img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/6dcc8a3d-27bc-4719-b495-e3a5e39d1cc7">
 <img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/ca4a8f18-9cbf-4e8d-b656-904596e5895f">
