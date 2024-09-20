@@ -3,10 +3,7 @@ output "aws_region" {
   description = "The AWS region used"
 }
 
-output "app_url" {
-  value       = aws_lb.alb.dns_name
-  description = "The public ALB DNS"
-}
+
 
 output "publisher_access_key" {
   value       = aws_iam_access_key.publisher.id
