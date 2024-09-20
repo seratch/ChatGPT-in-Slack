@@ -64,30 +64,8 @@ jobs:
         run: |
           echo "Running unit tests"
   
-# JOB to run change detection in terraform folder
-  changes:
-    runs-on: ubuntu-latest
-    # Required permissions
-    permissions:
-      pull-requests: read
-    # Set job outputs to values from filter step
-    outputs:
-      terraform: ${{ steps.filter.outputs.terraform }}  
-    steps:
-    # For pull requests it's not necessary to checkout the code
-    - uses: dorny/paths-filter@v3
-      id: filter
-      with:
-        filters: |
-          terraform:
-            - 'terraform/**'
 
-    - name: "Debug filter output"
-      run: |
-          echo "Terraform output: ${{ steps.filter.outputs.terraform }}"
   tf:
-    needs: changes
-    if: ${{ needs.changes.outputs.terraform == 'true' }}
     name: "Terraform"
     runs-on: "ubuntu-latest"
     steps:
