@@ -88,7 +88,7 @@ jobs:
         run: terraform init
       
       - name: Terraform Plan
-        run: terraform plan 
+        run: terraform apply 
         env:
             TF_VAR_AWS_REGION: ${{ env.AWS_REGION }}
 
