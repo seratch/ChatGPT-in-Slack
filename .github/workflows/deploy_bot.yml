@@ -37,7 +37,7 @@ name: Deploy to Amazon ECS
       - main
 env:
   AWS_REGION: "eu-central-1"                  # set this to your preferred AWS region, e.g. us-west-1
-  ECR_REPOSITORY: slack-gpt           # set this to your Amazon ECR repository name
+  ECR_REPOSITORY: '{"repository_name" : "slack-gpt"}'          # set this to your Amazon ECR repository name
   ECS_SERVICE: GPT_SERVICE                 # set this to your Amazon ECS service name
   ECS_CLUSTER: GPT_CLUSTER                 # set this to your Amazon ECS cluster name
   ECS_TASK_DEFINITION: GPT_TASK_DEFINITION # set this to the path to your Amazon ECS task definition
@@ -92,7 +92,7 @@ jobs:
         run: terraform plan 
         env:
             TF_VAR_aws_region: ${{ env.AWS_REGION }}
-            TF_VAR_ecr_repository: ${{ env.ECR_REPOSITORY }}
+            TF_VAR_ecr_repository: ${{ fromjson(env.ECR_REPOSITORY) }}
             TF_VAR_ecs_service: ${{ env.ECS_SERVICE }}
             TF_VAR_ecs_cluster: ${{ env.ECS_CLUSTER }}
             TF_VAR_ecs_task_definition: ${{ env.ECS_TASK_DEFINITION }}
