@@ -88,9 +88,14 @@ jobs:
         run: terraform init
       
       - name: Terraform Plan
-        run: terraform apply 
+        run: terraform plan 
         env:
             TF_VAR_aws_region: ${{ env.AWS_REGION }}
+            TF_VAR_ecr_repository: ${{ env.ECR_REPOSITORY }}
+            TF_VAR_ecs_service: ${{ env.ECS_SERVICE }}
+            TF_VAR_ecs_cluster: ${{ env.ECS_CLUSTER }}
+            TF_VAR_ecs_task_definition: ${{ env.ECS_TASK_DEFINITION }}
+            TF_VAR_container_name: ${{ env.CONTAINER_NAME }}
 
 
    

@@ -7,9 +7,8 @@ data "aws_subnet_ids" "subnets" {
   vpc_id = data.aws_vpc.vpc.id
 }
 
-data "aws_subnet" "subnets" {
+data "aws_subnets" "subnets" {
   for_each = data.aws_subnet_ids.subnets.ids
-  vpc_id   = data.aws_vpc.vpc.id
   id       = each.value
   # availability_zone = each.value
 }
