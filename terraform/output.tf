@@ -34,3 +34,6 @@ output "vpc" {
   value       = local.vpc.id
   description = "VPC id"
 }
+output "subnet_cidr_blocks" {
+  value = [for s in data.aws_subnets.subnets : s.cidr_block]
+}
