@@ -1,6 +1,6 @@
 variable "aws_region" {
-  type        = any
-  default     = {}
+  type        = string
+  default     = ""
   description = "AWS region"
 }
 
