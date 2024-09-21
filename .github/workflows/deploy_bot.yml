@@ -92,7 +92,7 @@ jobs:
             TF_VAR_aws_region: ${{ env.AWS_REGION }}
             TF_VAR_ecr_values: ${{ env.ECR_VALUES }}
             TF_VAR_ecs_values: ${{ env.ECS_VALUES }}
-            TF_VAR_container_values: ${{ env.CONTAINER_VALUES }}
+            TF_VAR_container: ${{ env.CONTAINER_VALUES }}
 
 
    
