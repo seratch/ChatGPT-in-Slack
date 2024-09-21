@@ -92,7 +92,7 @@ jobs:
         run: terraform plan 
         env:
             TF_VAR_aws_region: ${{ env.AWS_REGION }}
-            TF_VAR_ecr_repository: ${{ fromjson(env.ECR_REPOSITORY) }}
+            TF_VAR_ecr_values: ${{ fromjson(env.ECR_REPOSITORY) }}
             TF_VAR_ecs_service: ${{ env.ECS_SERVICE }}
             TF_VAR_ecs_cluster: ${{ env.ECS_CLUSTER }}
             TF_VAR_ecs_task_definition: ${{ env.ECS_TASK_DEFINITION }}
