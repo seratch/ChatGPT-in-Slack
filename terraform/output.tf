@@ -29,3 +29,8 @@ output "container_name" {
   value       = local.container.name
   description = "Container name for the ECS task"
 }
+
+output "vpc" {
+  value       = local.vpc.id
+  description = "VPC id"
+}

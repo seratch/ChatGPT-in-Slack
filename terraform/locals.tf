@@ -16,8 +16,8 @@ locals {
   vpc_defaults = {
     id = ""
   }
-  vpc             = merge(local.vpc_defaults, var.vpc)
-  use_default_vpc = local.vpc.id == ""
+  vpc  = merge(local.vpc_defaults, var.vpc)
+
 
   container_defaults = {
     name  = "application"
