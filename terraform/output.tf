@@ -35,5 +35,5 @@ output "vpc" {
   description = "VPC id"
 }
 output "subnet_cidr_blocks" {
-  value = [for s in data.aws_subnets.subnets : s.id]
+  value = [for s in data.aws_subnets.subnets : s.ids]
 }

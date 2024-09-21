@@ -44,7 +44,7 @@ resource "aws_ecs_service" "service" {
   desired_count   = 1
 
   network_configuration {
-    subnets          = [for s in data.aws_subnets.subnets : s.id]
+    subnets          = [for s in data.aws_subnets.subnets : s.ids]
     assign_public_ip = true
   }
 
