@@ -1,5 +1,5 @@
 data "aws_vpc" "vpc" {
-  id      = local.use_default_vpc ? null : local.vpc["id"]
+  id      =  local.vpc["id"]
 
 }
 
