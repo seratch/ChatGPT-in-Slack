@@ -30,6 +30,7 @@ name: Deploy to Amazon ECS
   push:
     branches:
       - deploy-to-ecs
+      - main
     tags:
       - "*"
   pull_request:
@@ -38,10 +39,13 @@ name: Deploy to Amazon ECS
 env:
   AWS_REGION: eu-central-1                 # set this to your preferred AWS region, e.g. us-west-1
   ECR_REPOSITORY: slack-gpt          # set this to your Amazon ECR repository name
-  ECS_VALUES: '{"service_name" = "GPT_SERVICE","cluster_name" ="GPT_CLUSTER"}'                 # set this to your Amazon ECS service name
+  
                 # set this to your Amazon ECS cluster name
-  CONTAINER_VALUES: '{"name" = "slack-gpt","image" = "822691405742.dkr.ecr.eu-central-1.amazonaws.com/slack-gpt:latest"}'           # set this to the name of the container in the
-                                               # containerDefinitions section of your task definition
+  
+  ECS_SERVICE: slack-gpt                    # name of the service
+  ECS_CLUSTER: slack-gpt                     # name of the cluster
+  ECS_TASK_DEFINITION: .aws/task-definition.json # path of the JSON task definition
+  CONTAINER_NAME: "slack-gpt"                                               # containerDefinitions section of your task definition
 
 permissions:
   id-token: write
@@ -95,4 +99,18 @@ jobs:
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
         echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-    
+        - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@c804dfbdd57f713b6c079302a4c01db7017a36fc
+        with:
+          task-definition: ${{ env.ECS_TASK_DEFINITION }}
+          container-name: ${{ env.CONTAINER_NAME }}
+          image: ${{ steps.build-image.outputs.image }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
