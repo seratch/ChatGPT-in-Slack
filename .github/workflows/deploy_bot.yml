@@ -86,8 +86,8 @@ jobs:
       - name: Terraform Init
         run: terraform init
       
-      - name: Terraform Plan
-        run: terraform plan 
+      - name: Terraform Apply
+        run: terraform apply -auto-approve 
         env:
             TF_VAR_aws_region: ${{ env.AWS_REGION }}
             TF_VAR_ecr_values: ${{ env.ECR_VALUES }}

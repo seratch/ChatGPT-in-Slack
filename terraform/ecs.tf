@@ -23,7 +23,7 @@ resource "aws_ecs_task_definition" "task" {
     {
       name      = local.container.name
       image     = local.container.image
-      cpu                = 10
+      cpu                = 256
       memory             = 512
       essential = true
       portMappings = [
@@ -35,6 +35,7 @@ resource "aws_ecs_task_definition" "task" {
       ]      
     }
   ])
+  depends_on = [aws_ecr_repository.repository]
 }
 
 resource "aws_ecs_service" "service" {
