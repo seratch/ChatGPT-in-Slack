@@ -40,7 +40,7 @@ env:
   ECR_VALUES: '{"repository_name" = "slack-gpt"}'          # set this to your Amazon ECR repository name
   ECS_VALUES: '{"service_name" = "GPT_SERVICE","cluster_name" ="GPT_CLUSTER"}'                 # set this to your Amazon ECS service name
                 # set this to your Amazon ECS cluster name
-  CONTAINER_VALUES: '{"name" = "slack-gpt","image" = "gd/slack-gpt"}'           # set this to the name of the container in the
+  CONTAINER_VALUES: '{"name" = "slack-gpt","image" = "822691405742.dkr.ecr.eu-central-1.amazonaws.com/slack-gpt:latest"}'           # set this to the name of the container in the
                                                # containerDefinitions section of your task definition
 
 permissions:
