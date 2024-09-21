@@ -36,7 +36,7 @@ name: Deploy to Amazon ECS
     branches:
       - main
 env:
-  AWS_REGION: "eu-west-1"                  # set this to your preferred AWS region, e.g. us-west-1
+  AWS_REGION: "eu-central-1"                  # set this to your preferred AWS region, e.g. us-west-1
   ECR_REPOSITORY: slack-gpt           # set this to your Amazon ECR repository name
   ECS_SERVICE: GPT_SERVICE                 # set this to your Amazon ECS service name
   ECS_CLUSTER: GPT_CLUSTER                 # set this to your Amazon ECS cluster name
