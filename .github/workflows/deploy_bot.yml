@@ -47,7 +47,8 @@ env:
   ECS_TASK_DEFINITION: .aws/task-definition.json # path of the JSON task definition
   CONTAINER_NAME: "slack-gpt"                                               # containerDefinitions section of your task definition
 
-
+permissions:
+  id-token: write
   contents: read
 
 jobs:
@@ -65,9 +66,6 @@ jobs:
         run: |
           echo "Running unit tests"   
   cd:
-    permissions:
-      id-token: write
-      contents: read
     name: "Deploy"
     runs-on: ubuntu-latest
     needs:
