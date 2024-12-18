@@ -1,0 +1,9 @@
+services:
+  chat-gpt-in-slack:
+    build: .
+    environment:
+      - SLACK_APP_TOKEN=${SLACK_APP_TOKEN}
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    restart: unless-stopped
+    entrypoint: python main.py

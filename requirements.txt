@@ -6,3 +6,4 @@ tiktoken>=0.6,<0.7
 urllib3<2
 pillow>=10.3.0,<11
 requests>=2.13,<3
+boto3>=1.4.4,<2
