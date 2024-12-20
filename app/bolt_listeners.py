@@ -1,7 +1,9 @@
 import json
 import logging
 import re
+import threading
 import time
+from typing import List
 
 import requests
 from openai import APITimeoutError
@@ -14,13 +16,13 @@ from app.env import (
     OPENAI_TIMEOUT_SECONDS,
     SYSTEM_TEXT,
     TRANSLATE_MARKDOWN,
-    IMAGE_FILE_ACCESS_ENABLED,
     OPENAI_IMAGE_GENERATION_MODEL,
 )
 from app.i18n import translate
 from app.openai_image_ops import (
     append_image_content_if_exists,
     generate_image,
+    generate_image_variations,
 )
 from app.openai_ops import (
     start_receiving_openai_response,
@@ -67,6 +69,11 @@ from app.slack_ui import (
     build_image_generation_result_modal,
     build_image_generation_text_modal,
     build_image_generation_result_blocks,
+    build_image_variations_text_modal,
+    build_image_variations_result_blocks,
+    build_image_variations_result_modal,
+    build_image_variations_wip_modal,
+    build_image_variations_input_modal,
 )
 
 
@@ -131,7 +138,9 @@ def respond_to_app_mention(
                 }
                 content = [message_text_item]
 
-                if can_send_image_url_to_openai(context):
+                if reply.get("bot_id") is None and can_send_image_url_to_openai(
+                    context
+                ):
                     append_image_content_if_exists(
                         bot_token=context.bot_token,
                         files=reply.get("files"),
@@ -160,7 +169,7 @@ def respond_to_app_mention(
             }
             content = [message_text_item]
 
-            if can_send_image_url_to_openai(context):
+            if payload.get("bot_id") is None and can_send_image_url_to_openai(context):
                 append_image_content_if_exists(
                     bot_token=context.bot_token,
                     files=payload.get("files"),
@@ -390,7 +399,7 @@ def respond_to_new_message(
                     + format_openai_message_content(reply_text, TRANSLATE_MARKDOWN),
                 }
             ]
-            if can_send_image_url_to_openai(context):
+            if reply.get("bot_id") is None and can_send_image_url_to_openai(context):
                 append_image_content_if_exists(
                     bot_token=context.bot_token,
                     files=reply.get("files"),
@@ -845,6 +854,144 @@ def display_image_generation_result(
         )
 
 
+def start_image_variations(client: WebClient, body: dict, payload: dict):
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view=build_image_variations_input_modal(payload.get("value")),
+    )
+
+
+def ack_image_variations_modal_submission(ack: Ack):
+    ack(response_action="update", view=build_image_variations_wip_modal())
+
+
+def display_image_variations_result(
+    client: WebClient,
+    context: BoltContext,
+    logger: logging.Logger,
+    payload: dict,
+):
+    try:
+        # https://platform.openai.com/docs/guides/images/variations-dall-e-2-only
+        model = "dall-e-2"  # DALL·E 2 only
+        size = extract_state_value(payload, "size").get("selected_option").get("value")
+        image_files = extract_state_value(payload, "input_files").get("files")
+
+        start_time = time.time()
+        threads = []
+        file_uploads: List[dict] = []
+        try:
+            for image_file in image_files:
+
+                def generate_variations():
+                    uploaded_image_url = image_file["url_private"]
+                    image_data: bytes = requests.get(
+                        uploaded_image_url,
+                        headers={"Authorization": f"Bearer {context.bot_token}"},
+                    ).content
+
+                    image_url = generate_image_variations(
+                        context=context,
+                        image=image_data,
+                        size=size,
+                        timeout_seconds=OPENAI_TIMEOUT_SECONDS,
+                    )
+                    image_content = requests.get(image_url).content
+                    file_uploads.append(
+                        {"file": image_content, "filename": image_file["name"]}
+                    )
+
+                thread = threading.Thread(target=generate_variations)
+                thread.daemon = True
+                thread.start()
+                threads.append(thread)
+
+        finally:
+            for t in threads:
+                try:
+                    if t.is_alive():
+                        t.join()
+                except Exception:
+                    pass
+
+        spent_seconds = str(round((time.time() - start_time), 2))
+
+        if len(file_uploads) == 0:
+            logger.error("Failed to prepare any upload content")
+            client.views_update(
+                view_id=payload["id"],
+                view=build_image_variations_text_modal(
+                    "Failed to generate variations. Please check your OpenAI platform usage."
+                ),
+            )
+            return
+
+        users = [context.actor_user_id]
+        dm_id = client.conversations_open(users=users)["channel"]["id"]
+        message_text = (
+            "Here are the generated image variations for your inputs:\n"
+            f"model: {model}, size: {size}, time spent: {spent_seconds} s"
+        )
+        upload = client.files_upload_v2(
+            initial_comment=message_text,
+            channel=dm_id,
+            file_uploads=file_uploads,
+        )
+        uploaded_files = upload["files"]
+        file_id = upload["files"][0]["id"]
+        shared = False
+        time.sleep(1.5)
+        while not shared:
+            latest_file_info = client.files_info(file=file_id)
+            shares = latest_file_info.get("file").get("shares")
+            shared = shares and len(shares.get("private")) > 0
+            if not shared:
+                time.sleep(0.5)
+
+        blocks = build_image_variations_result_blocks(
+            text=message_text,
+            generated_image_urls=[f["url_private"] for f in upload["files"]],
+            model=model,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_variations_result_modal(blocks),
+        )
+
+    except (APITimeoutError, TimeoutError):
+        client.chat_postMessage(
+            channel=context.actor_user_id,
+            text=TIMEOUT_ERROR_MESSAGE,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_variations_text_modal(TIMEOUT_ERROR_MESSAGE),
+        )
+    except SlackApiError as e:
+        logger.exception(f"Failed to call Slack APIs for image variations: {e}")
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_variations_text_modal(
+                f":warning: *My apologies!* "
+                f"An error occurred while calling Slack APIs: `{e}`"
+            ),
+        )
+    except Exception as e:
+        logger.exception(f"Failed to share a generated image: {e}")
+        error = (
+            f"\n\n:warning: *My apologies!* "
+            f"An error occurred while generating image variations: `{e}`"
+        )
+        client.chat_postMessage(
+            channel=context.actor_user_id,
+            text=error,
+        )
+        client.views_update(
+            view_id=payload["id"],
+            view=build_image_variations_text_modal(error),
+        )
+
+
 #
 # Chat from scratch
 #
@@ -902,20 +1049,6 @@ def display_chat_from_scratch_result(
 
 def register_listeners(app: App):
 
-    # TODO: remove this workaround once bolt-python attaches scopes to context under the hood
-    @app.middleware
-    def attach_bot_scopes(client: WebClient, context: BoltContext, next_):
-        if (
-            # the bot_scopes is used for #can_access_file_content method calls
-            IMAGE_FILE_ACCESS_ENABLED is True
-            and context.authorize_result is not None
-            and context.authorize_result.bot_scopes is None
-        ):
-            auth_test = client.auth_test(token=context.bot_token)
-            scopes = auth_test.headers.get("x-oauth-scopes", [])
-            context.authorize_result.bot_scopes = scopes
-        next_()
-
     # Chat with the bot
     app.event("app_mention")(ack=just_ack, lazy=[respond_to_app_mention])
     app.event("message")(ack=just_ack, lazy=[respond_to_new_message])
@@ -952,6 +1085,14 @@ def register_listeners(app: App):
     app.view("image-generation")(
         ack=ack_image_generation_modal_submission,
         lazy=[display_image_generation_result],
+    )
+    app.action("templates-image-variations")(
+        ack=just_ack,
+        lazy=[start_image_variations],
+    )
+    app.view("image-variations")(
+        ack=ack_image_variations_modal_submission,
+        lazy=[display_image_variations_result],
     )
 
     # Free format chat

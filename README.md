@@ -54,7 +54,7 @@ On the Home tab, in addition to the OpenAI API key and model configuration, you 
 <img width="700" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/13a06d0a-225f-4ff4-9e16-a5a95cc2d36b">
 
 
-Here is an exmaple of proofreading on Home tab:
+Here is an example of proofreading on Home tab:
 
 <img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/6dcc8a3d-27bc-4719-b495-e3a5e39d1cc7">
 <img width="400" src="https://github.com/seratch/ChatGPT-in-Slack/assets/19658/ca4a8f18-9cbf-4e8d-b656-904596e5895f">
@@ -142,6 +142,10 @@ When you make changes to the code in this project, please keep these points in m
 - When making changes to the app, please avoid anything that could cause breaking behavior. If such changes are absolutely necessary due to critical reasons, like security issues, please start a discussion in GitHub Issues before making significant alterations.
 - When you have the chance, please write some unit tests. Especially when you touch internal utility modules (e.g., `app/markdown.py` etc.) and add/edit the code that do not call any web APIs, writing tests should be relatively easy.
 - Before committing your changes, be sure to run `./validate.sh`. The script runs black (code formatter), flake8 and pytype (static code analyzers).
+
+## Related Projects
+
+- [iwamot/collmbo](https://github.com/iwamot/collmbo): @iwamot's forked project, which supports other LLM providers in addition to OpenAI by leveraging [LiteLLM](https://github.com/BerriAI/litellm)
 
 ## The License
 

@@ -76,3 +76,21 @@ def generate_image(
         n=1,
     )
     return response.data[0].url
+
+
+def generate_image_variations(
+    *,
+    context: BoltContext,
+    image: bytes,
+    size: Literal["256x256", "512x512", "1024x1024"] = "256x256",
+    timeout_seconds: int,
+) -> str:
+    client = create_openai_client(context)
+    response = client.images.create_variation(
+        model="dall-e-2",
+        image=BytesIO(image),
+        size=size,
+        timeout=timeout_seconds,
+        n=1,
+    )
+    return response.data[0].url

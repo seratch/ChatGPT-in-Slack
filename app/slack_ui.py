@@ -1,5 +1,5 @@
 import json
-from typing import Optional
+from typing import Optional, List
 from slack_bolt import BoltContext
 from slack_sdk.errors import SlackApiError
 from app.i18n import translate
@@ -8,6 +8,7 @@ from app.openai_constants import (
     GPT_4_MODEL,
     GPT_4_32K_MODEL,
     GPT_4O_MODEL,
+    GPT_4O_MINI_MODEL,
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE
 from app.slack_ops import extract_state_value
@@ -174,7 +175,7 @@ def _build_summary_result_modal(section_text: str) -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": section_text},
+                "text": {"type": "mrkdwn", "text": section_text or " "},
             },
         ],
     }
@@ -224,16 +225,21 @@ def build_home_tab(
             "* Chat Templates",
             "* Configuration",
             "* Can you generate an image as I instruct you?",
+            "* Can you generate variations for my images?",
         ]
     )
     translated_sentences = list(
         map(
             lambda s: s.replace("* ", ""),
-            translate(
-                openai_api_key=openai_api_key,
-                context=context,
-                text=original_sentences,
-            ).split("\n"),
+            filter(
+                # Consider that translation results might contain extra newlines
+                lambda s: s != "",
+                translate(
+                    openai_api_key=openai_api_key,
+                    context=context,
+                    text=original_sentences,
+                ).split("\n"),
+            ),
         )
     )
     message = translated_sentences[0]
@@ -244,6 +250,7 @@ def build_home_tab(
     chat_templates = translated_sentences[5]
     configuration = translated_sentences[6]
     image_generation = translated_sentences[7]
+    image_variations = translated_sentences[8]
 
     blocks = []
     if single_workspace_mode is False:
@@ -251,16 +258,16 @@ def build_home_tab(
             [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*{configuration}*"},
+                    "text": {"type": "mrkdwn", "text": f"*{configuration}* "},
                 },
                 {"type": "divider"},
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": message},
+                    "text": {"type": "mrkdwn", "text": message or " "},
                     "accessory": {
                         "action_id": "configure",
                         "type": "button",
-                        "text": {"type": "plain_text", "text": configure_label},
+                        "text": {"type": "plain_text", "text": configure_label or " "},
                         "style": "primary",
                         "value": "api_key",
                     },
@@ -272,35 +279,45 @@ def build_home_tab(
             [
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": f"*{chat_templates}*"},
+                    "text": {"type": "mrkdwn", "text": f"*{chat_templates}* "},
                 },
                 {"type": "divider"},
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": proofreading},
+                    "text": {"type": "mrkdwn", "text": proofreading or " "},
                     "accessory": {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": start},
-                        "value": proofreading,
+                        "text": {"type": "plain_text", "text": start or " "},
+                        "value": proofreading or " ",
                         "action_id": "templates-proofread",
                     },
                 },
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": image_generation},
+                    "text": {"type": "mrkdwn", "text": image_generation or " "},
                     "accessory": {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": start},
-                        "value": image_generation,
+                        "text": {"type": "plain_text", "text": start or " "},
+                        "value": image_generation or " ",
                         "action_id": "templates-image-generation",
                     },
                 },
                 {
                     "type": "section",
-                    "text": {"type": "mrkdwn", "text": from_scratch},
+                    "text": {"type": "mrkdwn", "text": image_variations or " "},
                     "accessory": {
                         "type": "button",
-                        "text": {"type": "plain_text", "text": start},
+                        "text": {"type": "plain_text", "text": start or " "},
+                        "value": image_variations or " ",
+                        "action_id": "templates-image-variations",
+                    },
+                },
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": from_scratch or " "},
+                    "accessory": {
+                        "type": "button",
+                        "text": {"type": "plain_text", "text": start or " "},
                         "value": " ",
                         "action_id": "templates-from-scratch",
                     },
@@ -344,6 +361,10 @@ def build_configure_modal(context: BoltContext) -> dict:
             "text": {"type": "plain_text", "text": "GPT-4o"},
             "value": GPT_4O_MODEL,
         },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4o-mini"},
+            "value": GPT_4O_MINI_MODEL,
+        },
     ]
     return {
         "type": "modal",
@@ -355,8 +376,15 @@ def build_configure_modal(context: BoltContext) -> dict:
             {
                 "type": "input",
                 "block_id": "api_key",
-                "label": {"type": "plain_text", "text": api_key_text},
-                "element": {"type": "plain_text_input", "action_id": "input"},
+                "label": {"type": "plain_text", "text": api_key_text or " "},
+                "element": {
+                    "type": "plain_text_input",
+                    "action_id": "input",
+                    "placeholder": {
+                        "type": "plain_text",
+                        "text": "Paste your API key starting with sk-...",
+                    },
+                },
             },
             {
                 "type": "input",
@@ -407,7 +435,7 @@ def build_proofreading_input_modal(prompt: str, tone_and_voice: Optional[str]) -
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": prompt},
+                "text": {"type": "mrkdwn", "text": prompt or " "},
             },
             {
                 "type": "input",
@@ -633,7 +661,7 @@ def build_image_generation_input_modal(prompt: str) -> dict:
         "blocks": [
             {
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": prompt},
+                "text": {"type": "mrkdwn", "text": prompt or " "},
             },
             {
                 "type": "input",
@@ -728,6 +756,108 @@ def build_image_generation_text_modal(section_text: str) -> dict:
         "type": "modal",
         "callback_id": "image-generation",
         "title": {"type": "plain_text", "text": "Image Generation"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": section_text or " "},
+            },
+        ],
+    }
+
+
+def build_image_variations_input_modal(prompt: str) -> dict:
+    size_options = [
+        {"text": {"type": "plain_text", "text": v}, "value": v}
+        for v in ["256x256", "512x512", "1024x1024"]
+    ]
+    return {
+        "type": "modal",
+        "callback_id": "image-variations",
+        "title": {"type": "plain_text", "text": "Image Variations"},
+        "submit": {"type": "plain_text", "text": "Submit"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": prompt or " "},
+            },
+            {
+                "type": "input",
+                "block_id": "input_files",
+                "label": {"type": "plain_text", "text": "Files to edit"},
+                "element": {
+                    "type": "file_input",
+                    "action_id": "input",
+                    "filetypes": ["png"],
+                    "max_files": 5,
+                },
+            },
+            # https://platform.openai.com/docs/api-reference/images/create
+            {
+                "type": "input",
+                "block_id": "size",
+                "label": {"type": "plain_text", "text": "Size"},
+                "element": {
+                    "type": "static_select",
+                    "options": size_options,
+                    "initial_option": size_options[0],
+                    "action_id": "input",
+                },
+            },
+        ],
+    }
+
+
+def build_image_variations_wip_modal() -> dict:
+    return build_image_variations_text_modal(
+        "Working on this now ... :hourglass:\n\n"
+        "Once the images are ready, this app will send them to you in a DM. "
+        "If you don't want to wait here, you can close this modal at any time."
+    )
+
+
+def build_image_variations_result_modal(blocks: list) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "image-variations",
+        "title": {"type": "plain_text", "text": "Image Variations"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": blocks,
+    }
+
+
+def build_image_variations_result_blocks(
+    *,
+    text: str,
+    generated_image_urls: List[str],
+    model: str,
+) -> list[dict]:
+    blocks = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": text,
+            },
+        },
+    ]
+    for url in generated_image_urls:
+        blocks.append(
+            {
+                "type": "image",
+                "slack_file": {"url": url},
+                "alt_text": f"Generated by {model}",
+            }
+        )
+    return blocks
+
+
+def build_image_variations_text_modal(section_text: str) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "image_variations",
+        "title": {"type": "plain_text", "text": "Image Variations"},
         "close": {"type": "plain_text", "text": "Close"},
         "blocks": [
             {
