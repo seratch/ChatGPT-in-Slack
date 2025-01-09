@@ -1,3 +1,4 @@
+from dotenv import load_dotenv
 import logging
 import os
 
@@ -21,6 +22,7 @@ from app.env import (
 )
 from app.slack_ui import build_home_tab
 
+load_dotenv()
 
 if __name__ == "__main__":
     from slack_bolt.adapter.socket_mode import SocketModeHandler

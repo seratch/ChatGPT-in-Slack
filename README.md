@@ -125,6 +125,19 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Using a .env File for Environment Variables (Optional)
+Instead of exporting environment variables manually, you can use a .env file to simplify the setup:
+    
+```bash
+cp .env.example .env
+```
+Open the .env file and replace the placeholder values with your actual keys:
+```text
+OPENAI_API_KEY=sk-your-openai-key
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_APP_TOKEN=xapp-1-your-slack-app-token
+```
+
 ## Running the App for Company Workspaces
 
 Confidentiality of information is top priority for businesses.
