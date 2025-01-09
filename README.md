@@ -125,6 +125,20 @@ pip install -r requirements.txt
 python main.py
 ```
 
+### Using .env for credential loading
+
+If you prefer using .env file to load env variables for local development, you can rename .env.example file to .env:
+    
+```bash
+cp .env.example .env
+```
+Then, replace the values in .env file with your own API keys and tokens:
+```text
+OPENAI_API_KEY=sk-your-openai-key
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_APP_TOKEN=xapp-1-your-slack-app-token
+```
+
 ## Running the App for Company Workspaces
 
 Confidentiality of information is top priority for businesses.

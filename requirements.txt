@@ -6,3 +6,4 @@ tiktoken>=0.7,<0.8
 urllib3<2
 pillow>=10.4.0,<11
 requests>=2.32,<3
+python-dotenv>=1.0.1,<2
