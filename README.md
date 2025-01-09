@@ -125,13 +125,14 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### Using a .env File for Environment Variables (Optional)
-Instead of exporting environment variables manually, you can use a .env file to simplify the setup:
+### Using .env for credential loading
+
+If you prefer using .env file to load env variables for local development, you can rename .env.example file to .env:
     
 ```bash
 cp .env.example .env
 ```
-Open the .env file and replace the placeholder values with your actual keys:
+Then, replace the values in .env file with your own API keys and tokens:
 ```text
 OPENAI_API_KEY=sk-your-openai-key
 SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
