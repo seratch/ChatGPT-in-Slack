@@ -19,4 +19,4 @@ jobs:
       - name: Run pytype verification
         run: |
           pip install -r requirements.txt
-          pip install "pytype==2023.03.02" boto3 && pytype *.py
+          pip install "pytype==2024.10.11" boto3 && pytype *.py
