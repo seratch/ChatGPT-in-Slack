@@ -549,11 +549,8 @@ def ack_summarize_options_modal_submission(
     ack: Ack,
     payload: dict,
 ):
-    where_to_display = (
-        extract_state_value(payload, "where-to-share-summary")
-        .get("selected_option")
-        .get("value", "modal")
-    )
+    selected_option = extract_state_value(payload, "where-to-share-summary")["selected_option"]
+    where_to_display = selected_option.get("value", "modal")
     if where_to_display == "modal":
         ack(response_action="update", view=build_summarize_wip_modal())
     else:
@@ -568,11 +565,8 @@ def prepare_and_share_thread_summary(
 ):
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
-        where_to_display = (
-            extract_state_value(payload, "where-to-share-summary")
-            .get("selected_option")
-            .get("value", "modal")
-        )
+        selected_option = extract_state_value(payload, "where-to-share-summary")["selected_option"]
+        where_to_display = selected_option.get("value", "modal")
         prompt = extract_state_value(payload, "prompt").get("value")
         private_metadata = json.loads(payload.get("private_metadata"))
         thread_content = build_thread_replies_as_combined_text(
@@ -639,7 +633,7 @@ def ack_proofreading_modal_submission(
     payload: dict,
     context: BoltContext,
 ):
-    original_text = extract_state_value(payload, "original_text").get("value")
+    original_text = extract_state_value(payload, "original_text")["value"]
     text = "\n".join(map(lambda s: f">{s}", original_text.split("\n")))
     view = build_proofreading_wip_modal(
         payload=payload,
@@ -658,10 +652,10 @@ def display_proofreading_result(
     text = ""
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
-        original_text = extract_state_value(payload, "original_text").get("value")
+        original_text = extract_state_value(payload, "original_text")["value"]
         tone_and_voice = extract_state_value(payload, "tone_and_voice")
         tone_and_voice = (
-            tone_and_voice.get("selected_option").get("value")
+            tone_and_voice["selected_option"].get("value")
             if tone_and_voice.get("selected_option")
             else None
         )
@@ -758,13 +752,13 @@ def display_image_generation_result(
 ):
     text = ""
     try:
-        prompt = extract_state_value(payload, "image_generation_prompt").get("value")
-        size = extract_state_value(payload, "size").get("selected_option").get("value")
+        prompt = extract_state_value(payload, "image_generation_prompt")["value"]
+        size = extract_state_value(payload, "size")["selected_option"].get("value")
         quality = (
-            extract_state_value(payload, "quality").get("selected_option").get("value")
+            extract_state_value(payload, "quality")["selected_option"].get("value")
         )
         style = (
-            extract_state_value(payload, "style").get("selected_option").get("value")
+            extract_state_value(payload, "style")["selected_option"].get("value")
         )
         model = context.get(
             "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
@@ -874,7 +868,7 @@ def display_image_variations_result(
     try:
         # https://platform.openai.com/docs/guides/images/variations-dall-e-2-only
         model = "dall-e-2"  # DALL·E 2 only
-        size = extract_state_value(payload, "size").get("selected_option").get("value")
+        size = extract_state_value(payload, "size")["selected_option"].get("value")
         image_files = extract_state_value(payload, "input_files").get("files")
 
         start_time = time.time()
@@ -1008,7 +1002,7 @@ def ack_chat_from_scratch_modal_submission(
     ack: Ack,
     payload: dict,
 ):
-    prompt = extract_state_value(payload, "prompt").get("value")
+    prompt = extract_state_value(payload, "prompt")["value"]
     text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
     view = build_from_scratch_wip_modal(text)
     ack(response_action="update", view=view)
@@ -1023,7 +1017,7 @@ def display_chat_from_scratch_result(
     text = ""
     openai_api_key = context.get("OPENAI_API_KEY")
     try:
-        prompt = extract_state_value(payload, "prompt").get("value")
+        prompt = extract_state_value(payload, "prompt")["value"]
         text = "\n".join(map(lambda s: f">{s}", prompt.split("\n")))
         result = generate_chatgpt_response(
             context=context,
