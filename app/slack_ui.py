@@ -346,18 +346,6 @@ def build_configure_modal(context: BoltContext) -> dict:
 
     options = [
         {
-            "text": {"type": "plain_text", "text": "GPT-3.5 Turbo"},
-            "value": GPT_3_5_TURBO_MODEL,
-        },
-        {
-            "text": {"type": "plain_text", "text": "GPT-4 8K"},
-            "value": GPT_4_MODEL,
-        },
-        {
-            "text": {"type": "plain_text", "text": "GPT-4 32K"},
-            "value": GPT_4_32K_MODEL,
-        },
-        {
             "text": {"type": "plain_text", "text": "GPT-4o"},
             "value": GPT_4O_MODEL,
         },
