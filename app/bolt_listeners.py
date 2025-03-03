@@ -74,6 +74,9 @@ from app.slack_ui import (
     build_image_variations_result_modal,
     build_image_variations_wip_modal,
     build_image_variations_input_modal,
+    build_translation_result_modal,
+    build_translation_modal,
+    build_translation_wip_modal,
 )
 
 
@@ -525,6 +528,43 @@ def respond_to_new_message(
                 ts=wip_reply["message"]["ts"],
                 text=text,
             )
+
+
+#
+# Translate a message
+#
+
+
+def start_translation_modal(
+    client: WebClient,
+    body: dict,
+):
+    client.views_open(
+        trigger_id=body.get("trigger_id"),
+        view=build_translation_modal(body=body),
+    )
+
+
+def ack_translation_modal_submission(
+    ack: Ack,
+):
+    ack(
+        response_action="update",
+        view=build_translation_wip_modal(
+            "Got it! Working on the translation now ... :hourglass:"
+        ),
+    )
+
+
+def display_translation_result(
+    context: BoltContext,
+    payload: dict,
+    client: WebClient,
+):
+    client.views_update(
+        view_id=payload["id"],
+        view=build_translation_result_modal(context=context, payload=payload),
+    )
 
 
 #
@@ -1058,6 +1098,12 @@ def register_listeners(app: App):
     app.view("request-thread-summary")(
         ack=ack_summarize_options_modal_submission,
         lazy=[prepare_and_share_thread_summary],
+    )
+
+    # Translate a message
+    app.shortcut("translate-message")(ack=just_ack, lazy=[start_translation_modal])
+    app.view("translate-message")(
+        ack=ack_translation_modal_submission, lazy=[display_translation_result]
     )
 
     # Use templates
