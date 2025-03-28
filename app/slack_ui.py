@@ -10,8 +10,97 @@ from app.openai_constants import (
     GPT_4O_MODEL,
     GPT_4O_MINI_MODEL,
 )
-from app.slack_constants import TIMEOUT_ERROR_MESSAGE
+from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
+
+
+# ----------------------------
+# Translate
+# ----------------------------
+
+
+def _build_translation_result_modal(blocks: List[dict]) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "translate-message",
+        "title": {"type": "plain_text", "text": "Translate the thread"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": blocks,
+    }
+
+
+def build_translation_result_modal(*, context: BoltContext, payload: dict) -> dict:
+    text = json.loads(payload["private_metadata"]).get("text")
+    openai_api_key = context.get("OPENAI_API_KEY")
+
+    try:
+        translated = translate(
+            openai_api_key=openai_api_key, context=context, text=text
+        )
+        blocks = []
+        remaining = translated
+
+        while remaining:
+            chunk = remaining[: MAX_MESSAGE_LENGTH - 6]
+            blocks.append(
+                {
+                    "type": "section",
+                    "text": {"type": "mrkdwn", "text": f"```{chunk}```"},
+                }
+            )
+            remaining = remaining[MAX_MESSAGE_LENGTH - 6:]
+
+        return _build_translation_result_modal(blocks)
+    except Exception as e:
+        blocks = [
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": f":warning: *My apologies!* An error occurred while translating the text: `{e}`",
+                },
+            }
+        ]
+        return _build_translation_result_modal(blocks)
+
+
+def build_translation_modal(*, body: dict) -> dict:
+    text = body.get("message", {}).get("text")
+
+    if len(text) >= (MAX_MESSAGE_LENGTH - 6):  # 6 is for the Markdown formatting
+        return build_translation_wip_modal(
+            text="Text is too long. Translation is only available for text under 3000 characters."
+        )
+
+    return {
+        "type": "modal",
+        "callback_id": "translate-message",
+        "title": {"type": "plain_text", "text": "Translate the thread"},
+        "private_metadata": json.dumps({"text": text}),
+        "submit": {"type": "plain_text", "text": "Translate"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": f"```{text}```"},
+            }
+        ],
+    }
+
+
+def build_translation_wip_modal(text: str) -> dict:
+    return {
+        "type": "modal",
+        "callback_id": "translate-message",
+        "title": {"type": "plain_text", "text": "Translate the thread"},
+        "close": {"type": "plain_text", "text": "Close"},
+        "blocks": [
+            {
+                "type": "section",
+                "text": {"type": "plain_text", "text": text},
+            },
+        ],
+    }
 
 
 # ----------------------------
