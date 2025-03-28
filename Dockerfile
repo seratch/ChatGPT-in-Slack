@@ -1,9 +1,9 @@
-FROM python:3.11.4-slim-buster as builder
+FROM python:3.11.11-slim-bookworm as builder
 COPY requirements.txt /build/
 WORKDIR /build/
 RUN pip install -U pip && pip install -r requirements.txt
 
-FROM python:3.11.4-slim-buster as app
+FROM python:3.11.11-slim-bookworm as app
 WORKDIR /app/
 COPY *.py /app/
 RUN mkdir /app/app/
