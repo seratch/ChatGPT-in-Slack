@@ -418,6 +418,7 @@ def build_home_tab(
 
 def build_configure_modal(context: BoltContext) -> dict:
     already_set_api_key = context.get("OPENAI_API_KEY")
+    saved_model = context.get("OPENAI_MODEL")
     api_key_text = "Save your OpenAI API key:"
     submit = "Submit"
     cancel = "Cancel"
@@ -479,7 +480,16 @@ def build_configure_modal(context: BoltContext) -> dict:
                     "type": "static_select",
                     "action_id": "input",
                     "options": options,
-                    "initial_option": options[0],
+                    **(
+                        {
+                            "initial_option": next(
+                                (opt for opt in options if opt["value"] == saved_model),
+                                options[0],
+                            )
+                        }
+                        if already_set_api_key is not None
+                        else {"initial_option": options[0]}
+                    ),
                 },
             },
         ],
