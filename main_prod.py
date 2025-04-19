@@ -49,7 +49,7 @@ from app.i18n import translate
 # export SLACK_INSTALLATION_S3_BUCKET_NAME=
 # export SLACK_STATE_S3_BUCKET_NAME=
 # export OPENAI_S3_BUCKET_NAME=
-# npm install -g serverless
+# npm install -g serverless@3
 # serverless plugin install -n serverless-python-requirements
 # serverless deploy
 #
