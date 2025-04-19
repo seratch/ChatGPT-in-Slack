@@ -4,11 +4,10 @@ from slack_bolt import BoltContext
 from slack_sdk.errors import SlackApiError
 from app.i18n import translate
 from app.openai_constants import (
-    GPT_3_5_TURBO_MODEL,
-    GPT_4_MODEL,
-    GPT_4_32K_MODEL,
     GPT_4O_MODEL,
     GPT_4O_MINI_MODEL,
+    GPT_4_1_MODEL,
+    GPT_4_1_MINI_MODEL,
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
@@ -434,6 +433,14 @@ def build_configure_modal(context: BoltContext) -> dict:
         )
 
     options = [
+        {
+            "text": {"type": "plain_text", "text": "GPT-4.1"},
+            "value": GPT_4_1_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-4.1-mini"},
+            "value": GPT_4_1_MINI_MODEL,
+        },
         {
             "text": {"type": "plain_text", "text": "GPT-4o"},
             "value": GPT_4O_MODEL,
