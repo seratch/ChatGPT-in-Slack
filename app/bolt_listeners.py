@@ -589,7 +589,9 @@ def ack_summarize_options_modal_submission(
     ack: Ack,
     payload: dict,
 ):
-    selected_option = extract_state_value(payload, "where-to-share-summary")["selected_option"]
+    selected_option = extract_state_value(payload, "where-to-share-summary")[
+        "selected_option"
+    ]
     where_to_display = selected_option.get("value", "modal")
     if where_to_display == "modal":
         ack(response_action="update", view=build_summarize_wip_modal())
@@ -605,7 +607,9 @@ def prepare_and_share_thread_summary(
 ):
     try:
         openai_api_key = context.get("OPENAI_API_KEY")
-        selected_option = extract_state_value(payload, "where-to-share-summary")["selected_option"]
+        selected_option = extract_state_value(payload, "where-to-share-summary")[
+            "selected_option"
+        ]
         where_to_display = selected_option.get("value", "modal")
         prompt = extract_state_value(payload, "prompt").get("value")
         private_metadata = json.loads(payload.get("private_metadata"))
@@ -794,12 +798,10 @@ def display_image_generation_result(
     try:
         prompt = extract_state_value(payload, "image_generation_prompt")["value"]
         size = extract_state_value(payload, "size")["selected_option"].get("value")
-        quality = (
-            extract_state_value(payload, "quality")["selected_option"].get("value")
+        quality = extract_state_value(payload, "quality")["selected_option"].get(
+            "value"
         )
-        style = (
-            extract_state_value(payload, "style")["selected_option"].get("value")
-        )
+        style = extract_state_value(payload, "style")["selected_option"].get("value")
         model = context.get(
             "OPENAI_IMAGE_GENERATION_MODEL", OPENAI_IMAGE_GENERATION_MODEL
         )

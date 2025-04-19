@@ -222,8 +222,23 @@ def handler(event, context_):
         already_set_api_key = context.get("OPENAI_API_KEY")
 
         inputs = view["state"]["values"]
-        api_key = inputs["api_key"]["input"]["value"]
+        # Try to get the API key value, but handle if the field is missing or empty
+        api_key_input = inputs.get("api_key", {}).get("input", {}).get("value", None)
+        # If not provided, use the already-set API key from context
+        api_key = api_key_input if api_key_input else already_set_api_key
         model = inputs["model"]["input"]["selected_option"]["value"]
+
+        if not api_key:
+            text = "An OpenAI API key is required."
+            if already_set_api_key is not None:
+                text = translate(
+                    openai_api_key=already_set_api_key, context=context, text=text
+                )
+            ack(
+                response_action="errors",
+                errors={"api_key": text},
+            )
+            return
         try:
             # Verify if the API key is valid
             client = OpenAI(api_key=api_key)
@@ -260,7 +275,11 @@ def handler(event, context_):
         context: BoltContext,
     ):
         inputs = view["state"]["values"]
-        api_key = inputs["api_key"]["input"]["value"]
+        # Try to get the API key value, but handle if the field is missing or empty
+        api_key_input = inputs.get("api_key", {}).get("input", {}).get("value", None)
+        # If not provided, use the already-set API key from context
+        already_set_api_key = context.get("OPENAI_API_KEY")
+        api_key = api_key_input if api_key_input else already_set_api_key
         model = inputs["model"]["input"]["selected_option"]["value"]
         try:
             client = OpenAI(api_key=api_key)

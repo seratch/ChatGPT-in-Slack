@@ -47,7 +47,7 @@ def build_translation_result_modal(*, context: BoltContext, payload: dict) -> di
                     "text": {"type": "mrkdwn", "text": f"```{chunk}```"},
                 }
             )
-            remaining = remaining[MAX_MESSAGE_LENGTH - 6:]
+            remaining = remaining[MAX_MESSAGE_LENGTH - 6 :]
 
         return _build_translation_result_modal(blocks)
     except Exception as e:
@@ -469,6 +469,7 @@ def build_configure_modal(context: BoltContext) -> dict:
                         "text": "Paste your API key starting with sk-...",
                     },
                 },
+                "optional": already_set_api_key is not None,
             },
             {
                 "type": "input",
