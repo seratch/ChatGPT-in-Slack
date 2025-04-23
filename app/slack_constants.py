@@ -8,3 +8,4 @@ TIMEOUT_ERROR_MESSAGE = (
 )
 
 DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
+MAX_MESSAGE_LENGTH = 3000

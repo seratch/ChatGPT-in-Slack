@@ -13,6 +13,10 @@ features:
       type: message
       callback_id: summarize-thread
       description: Summarize the discussion in a thread
+    - name: Translate message
+      type: message
+      callback_id: translate-message
+      description: Translate the selected messages to your Slack language
 oauth_config:
   scopes:
     bot:
