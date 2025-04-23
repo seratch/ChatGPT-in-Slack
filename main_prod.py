@@ -23,6 +23,8 @@ from app.env import (
     USE_SLACK_LANGUAGE,
     SLACK_APP_LOG_LEVEL,
     OPENAI_MODEL,
+    OPENAI_MODEL_NAME,
+    OPENAI_MODEL_TYPE,
     OPENAI_TEMPERATURE,
     OPENAI_API_TYPE,
     OPENAI_API_BASE,
@@ -156,6 +158,8 @@ def handler(event, context_):
                 config = json.loads(config_str)
                 context["OPENAI_API_KEY"] = config.get("api_key")
                 context["OPENAI_MODEL"] = config.get("model")
+                context["OPENAI_MODEL_NAME"] = config.get("model_name")
+                context["OPENAI_MODEL_TYPE"] = config.get("model_type")
                 context["OPENAI_IMAGE_GENERATION_MODEL"] = config.get(
                     "image_generation_model", OPENAI_IMAGE_GENERATION_MODEL
                 )
@@ -166,6 +170,8 @@ def handler(event, context_):
                 # The legacy data format
                 context["OPENAI_API_KEY"] = config_str
                 context["OPENAI_MODEL"] = OPENAI_MODEL
+                context["OPENAI_MODEL_NAME"] = OPENAI_MODEL_NAME
+                context["OPENAI_MODEL_TYPE"] = OPENAI_MODEL_TYPE
                 context["OPENAI_IMAGE_GENERATION_MODEL"] = OPENAI_IMAGE_GENERATION_MODEL
                 context["OPENAI_TEMPERATURE"] = OPENAI_TEMPERATURE
         except:  # noqa: E722

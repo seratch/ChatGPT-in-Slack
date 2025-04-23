@@ -418,7 +418,7 @@ def build_home_tab(
 
 def build_configure_modal(context: BoltContext) -> dict:
     already_set_api_key = context.get("OPENAI_API_KEY")
-    saved_model = context.get("OPENAI_MODEL")
+    saved_model = context.get("OPENAI_MODEL_NAME")
     api_key_text = "Save your OpenAI API key:"
     submit = "Submit"
     cancel = "Cancel"
@@ -581,7 +581,7 @@ def build_proofreading_wip_modal(
                 "elements": [
                     {
                         "type": "mrkdwn",
-                        "text": f"Running OpenAI's *{context['OPENAI_MODEL']}* model:",
+                        "text": f"Running OpenAI's *{context['OPENAI_MODEL_TYPE']}* model:",
                     },
                 ],
             },
@@ -638,7 +638,7 @@ def build_proofreading_result_modal(
             "elements": [
                 {
                     "type": "mrkdwn",
-                    "text": f"Provided using OpenAI's *{context['OPENAI_MODEL']}* model:",
+                    "text": f"Provided using OpenAI's *{context['OPENAI_MODEL_TYPE']}* model:",
                 },
             ],
         },

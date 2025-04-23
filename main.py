@@ -11,6 +11,8 @@ from app.env import (
     USE_SLACK_LANGUAGE,
     SLACK_APP_LOG_LEVEL,
     OPENAI_MODEL,
+    OPENAI_MODEL_NAME,
+    OPENAI_MODEL_TYPE,
     OPENAI_TEMPERATURE,
     OPENAI_API_TYPE,
     OPENAI_API_BASE,
@@ -67,6 +69,8 @@ if __name__ == "__main__":
     def set_openai_api_key(context: BoltContext, next_):
         context["OPENAI_API_KEY"] = os.environ["OPENAI_API_KEY"]
         context["OPENAI_MODEL"] = OPENAI_MODEL
+        context["OPENAI_MODEL_NAME"] = OPENAI_MODEL_NAME
+        context["OPENAI_MODEL_TYPE"] = OPENAI_MODEL_TYPE
         context["OPENAI_IMAGE_GENERATION_MODEL"] = OPENAI_IMAGE_GENERATION_MODEL
         context["OPENAI_TEMPERATURE"] = OPENAI_TEMPERATURE
         context["OPENAI_API_TYPE"] = OPENAI_API_TYPE

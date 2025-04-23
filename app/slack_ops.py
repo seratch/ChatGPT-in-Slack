@@ -133,7 +133,7 @@ def can_send_image_url_to_openai(context: BoltContext) -> bool:
     if can_access_files is False:
         return False
 
-    openai_model = context.get("OPENAI_MODEL")
+    openai_model = context.get("OPENAI_MODEL_TYPE")
     # More supported models will come. This logic will need to be updated then.
     can_send_image_url = openai_model is not None and (
         openai_model.startswith("gpt-4o") or openai_model.startswith("gpt-4.1")

@@ -88,6 +88,10 @@ export OPENAI_API_KEY=sk-...
 
 # Optional: gpt-3.5-turbo and newer ones are currently supported (default: gpt-3.5-turbo)
 export OPENAI_MODEL=gpt-4o
+# Optional: custom model name (default: OPENAI_MODEL)
+export OPENAI_MODEL_NAME=gpt-4o
+# Optional: custom model type (default: OPENAI_MODEL)
+export OPENAI_MODEL_TYPE=gpt-4o
 # Optional: Model temperature between 0 and 2 (default: 1.0)
 export OPENAI_TEMPERATURE=1
 # Optional: You can adjust the timeout seconds for OpenAI calls (default: 30)

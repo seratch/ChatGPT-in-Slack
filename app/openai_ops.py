@@ -82,7 +82,7 @@ def messages_within_context_window(
     # Remove old messages to make sure we have room for max_tokens
     # See also: https://platform.openai.com/docs/guides/chat/introduction
     # > total tokens must be below the model’s maximum limit (e.g., 4096 tokens for gpt-3.5-turbo-0301)
-    max_context_tokens = context_length(context.get("OPENAI_MODEL")) - MAX_TOKENS - 1
+    max_context_tokens = context_length(context.get("OPENAI_MODEL_TYPE")) - MAX_TOKENS - 1
     if context.get("OPENAI_FUNCTION_CALL_MODULE_NAME") is not None:
         max_context_tokens -= calculate_tokens_necessary_for_function_call(context)
     num_context_tokens = 0  # Number of tokens in the context window just before the earliest message is deleted
@@ -278,7 +278,7 @@ def consume_openai_stream_to_write_reply(
             messages_within_context_window(messages, context=context)
             sub_stream = start_receiving_openai_response(
                 openai_api_key=context.get("OPENAI_API_KEY"),
-                model=context.get("OPENAI_MODEL"),
+                model=context.get("OPENAI_MODEL_NAME"),
                 temperature=context.get("OPENAI_TEMPERATURE"),
                 messages=messages,
                 user=user_id,
@@ -531,7 +531,7 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
     def _calculate_prompt_tokens(functions) -> int:
         client = create_openai_client(context)
         return client.chat.completions.create(
-            model=context.get("OPENAI_MODEL"),
+            model=context.get("OPENAI_MODEL_NAME"),
             messages=[{"role": "user", "content": "hello"}],
             max_tokens=1024,
             user="system",
@@ -575,7 +575,7 @@ def generate_slack_thread_summary(
     start_time = time.time()
     openai_response = make_synchronous_openai_call(
         openai_api_key=openai_api_key,
-        model=context["OPENAI_MODEL"],
+        model=context["OPENAI_MODEL_NAME"],
         temperature=context["OPENAI_TEMPERATURE"],
         messages=messages,
         user=context.actor_user_id,
@@ -628,7 +628,7 @@ def generate_proofreading_result(
     start_time = time.time()
     openai_response = make_synchronous_openai_call(
         openai_api_key=openai_api_key,
-        model=context["OPENAI_MODEL"],
+        model=context["OPENAI_MODEL_NAME"],
         temperature=context["OPENAI_TEMPERATURE"],
         messages=messages,
         user=context.actor_user_id,
@@ -667,7 +667,7 @@ def generate_chatgpt_response(
     start_time = time.time()
     openai_response = make_synchronous_openai_call(
         openai_api_key=openai_api_key,
-        model=context["OPENAI_MODEL"],
+        model=context["OPENAI_MODEL_NAME"],
         temperature=context["OPENAI_TEMPERATURE"],
         messages=messages,
         user=context.actor_user_id,
