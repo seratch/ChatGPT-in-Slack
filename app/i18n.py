@@ -18,8 +18,8 @@ _locale_to_lang = {
     "pt-BR": "Portuguese",
     "ru-RU": "Russian",
     "ja-JP": "Japanese",
-    "zh-CN": "Chinese",
-    "zh-TW": "Chinese",
+    "zh-CN": "Simplified Chinese",
+    "zh-TW": "Traditional Chinese",
     "ko-KR": "Korean",
 }
 
