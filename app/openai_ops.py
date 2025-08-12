@@ -45,6 +45,7 @@ from app.openai_constants import (
     GPT_4_1_MINI_2025_04_14_MODEL,
     GPT_4_1_NANO_MODEL,
     GPT_4_1_NANO_2025_04_14_MODEL,
+    GPT_5_CHAT_LATEST_MODEL,
     MODEL_TOKENS,
     MODEL_FALLBACKS,
 )
@@ -389,6 +390,7 @@ def context_length(
         or model == GPT_4_TURBO_2024_04_09_MODEL
         or model == GPT_4O_2024_05_13_MODEL
         or model == GPT_4O_MINI_2024_07_18_MODEL
+        or model == GPT_5_CHAT_LATEST_MODEL
     ):
         return 128000
     else:
