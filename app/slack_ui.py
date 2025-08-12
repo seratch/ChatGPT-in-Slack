@@ -8,6 +8,7 @@ from app.openai_constants import (
     GPT_4O_MINI_MODEL,
     GPT_4_1_MODEL,
     GPT_4_1_MINI_MODEL,
+    GPT_5_CHAT_LATEST_MODEL,
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
@@ -434,6 +435,10 @@ def build_configure_modal(context: BoltContext) -> dict:
         )
 
     options = [
+        {
+            "text": {"type": "plain_text", "text": "GPT-5-chat-latest"},
+            "value": GPT_5_CHAT_LATEST_MODEL,
+        },
         {
             "text": {"type": "plain_text", "text": "GPT-4.1"},
             "value": GPT_4_1_MODEL,
