@@ -1,7 +1,9 @@
+import app.openai_ops as ops
 from app.openai_ops import (
     format_assistant_reply,
     format_openai_message_content,
 )
+from app.openai_constants import GPT_4O_MODEL
 
 
 def test_format_assistant_reply():
@@ -69,3 +71,28 @@ int main(int argc, char *argv[])
     ]:
         result = format_openai_message_content(content, False)
         assert result == expected
+
+
+def test_messages_within_context_window_passes_model(monkeypatch):
+    """Ensures token counting receives the actual OPENAI_MODEL from context."""
+    captured = {"model": None, "calls": 0}
+
+    def fake_calculate_num_tokens(messages, model=None):  # type: ignore[no-redef]
+        captured["model"] = model
+        captured["calls"] += 1
+        return 0  # Keep under threshold to avoid loop iterations
+
+    monkeypatch.setattr(ops, "calculate_num_tokens", fake_calculate_num_tokens)
+
+    messages = [{"role": "user", "content": "hi"}]
+    context = {
+        "OPENAI_MODEL": GPT_4O_MODEL,
+        "OPENAI_FUNCTION_CALL_MODULE_NAME": None,
+    }
+
+    # Execute
+    ops.messages_within_context_window(messages, context)  # type: ignore[arg-type]
+
+    # Assert the model used for token counting matches context
+    assert captured["calls"] >= 1
+    assert captured["model"] == GPT_4O_MODEL
