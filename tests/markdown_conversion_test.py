@@ -122,3 +122,33 @@ else:
     ]:
         result = slack_to_markdown(content)
         assert result == expected
+
+
+def test_markdown_to_slack_eaw_spacing():
+    # Ensure spacing is inserted around Slack markers next to East Asian wide
+    # characters and fullwidth punctuation, and not inserted for halfwidth.
+    for content, expected in [
+        ("這是**粗體**文字。", "這是 *粗體* 文字。"),
+        ("中文_斜體_中文", "中文 _斜體_ 中文"),
+        ("中文~~刪除~~中文，標點", "中文 ~刪除~ 中文，標點"),
+        ("括號：「**強調**」", "括號：「 *強調* 」"),
+        ("ひらがな**強調**ひらがな", "ひらがな *強調* ひらがな"),
+        ("한글**강조**한글", "한글 *강조* 한글"),
+        ("ㄅㄆㄇ**強調**ㄈㄉㄊ", "ㄅㄆㄇ *強調* ㄈㄉㄊ"),
+        # Halfwidth Katakana neighbors should not add spaces
+        ("ｶﾀｶﾅ**強調**ｶﾀｶﾅ", "ｶﾀｶﾅ*強調*ｶﾀｶﾅ"),
+        # Code spans should not be changed
+        ("Inline code `**粗體**` test", "Inline code `**粗體**` test"),
+    ]:
+        result = markdown_to_slack(content)
+        assert result == expected
+
+
+def test_markdown_to_slack_code_eaw_spacing():
+    for content, expected in [
+        ("中文`程式`中文", "中文 `程式` 中文"),
+        ("中文```程式```中文", "中文 ```程式``` 中文"),
+        ("括號：「`程式`」", "括號：「 `程式` 」"),
+    ]:
+        result = markdown_to_slack(content)
+        assert result == expected
