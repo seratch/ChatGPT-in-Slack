@@ -28,6 +28,16 @@ GPT_4_1_MINI_2025_04_14_MODEL = "gpt-4.1-mini-2025-04-14"
 GPT_4_1_NANO_MODEL = "gpt-4.1-nano"
 GPT_4_1_NANO_2025_04_14_MODEL = "gpt-4.1-nano-2025-04-14"
 GPT_5_CHAT_LATEST_MODEL = "gpt-5-chat-latest"
+GPT_5_MODEL = "gpt-5"
+GPT_5_MINI_MODEL = "gpt-5-mini"
+GPT_5_NANO_MODEL = "gpt-5-nano"
+O3_MODEL = "o3"
+O4_MINI_MODEL = "o4-mini"
+GPT_5_2025_08_07_MODEL = "gpt-5-2025-08-07"
+GPT_5_MINI_2025_08_07_MODEL = "gpt-5-mini-2025-08-07"
+GPT_5_NANO_2025_08_07_MODEL = "gpt-5-nano-2025-08-07"
+O3_2025_04_16_MODEL = "o3-2025-04-16"
+O4_MINI_2025_04_16_MODEL = "o4-mini-2025-04-16"
 
 # Default model used for token counting when none specified
 DEFAULT_TOKEN_COUNT_MODEL = GPT_3_5_TURBO_0613_MODEL
@@ -65,6 +75,13 @@ MODEL_TOKENS = {
     GPT_4O_MINI_2024_07_18_MODEL: (3, 1),
     # GPT-5 chat latest
     GPT_5_CHAT_LATEST_MODEL: (3, 1),
+    # GPT-5 family (dated)
+    GPT_5_2025_08_07_MODEL: (3, 1),
+    GPT_5_MINI_2025_08_07_MODEL: (3, 1),
+    GPT_5_NANO_2025_08_07_MODEL: (3, 1),
+    # Reasoning models (dated)
+    O3_2025_04_16_MODEL: (3, 1),
+    O4_MINI_2025_04_16_MODEL: (3, 1),
 }
 
 # Note that these fallbacks may change over time.
@@ -79,6 +96,12 @@ MODEL_FALLBACKS = {
     GPT_4_1_MODEL: GPT_4_1_2025_04_14_MODEL,
     GPT_4_1_MINI_MODEL: GPT_4_1_MINI_2025_04_14_MODEL,
     GPT_4_1_NANO_MODEL: GPT_4_1_NANO_2025_04_14_MODEL,
+    # GPT-5 and reasoning families to their dated variants
+    GPT_5_MODEL: GPT_5_2025_08_07_MODEL,
+    GPT_5_MINI_MODEL: GPT_5_MINI_2025_08_07_MODEL,
+    GPT_5_NANO_MODEL: GPT_5_NANO_2025_08_07_MODEL,
+    O3_MODEL: O3_2025_04_16_MODEL,
+    O4_MINI_MODEL: O4_MINI_2025_04_16_MODEL,
 }
 
 MODEL_CONTEXT_LENGTHS = {
@@ -107,6 +130,13 @@ MODEL_CONTEXT_LENGTHS = {
     GPT_4_1_NANO_2025_04_14_MODEL: 1048576,
     # GPT-5 chat latest
     GPT_5_CHAT_LATEST_MODEL: 128000,
+    # GPT-5 family (dated)
+    GPT_5_2025_08_07_MODEL: 128000,
+    GPT_5_MINI_2025_08_07_MODEL: 128000,
+    GPT_5_NANO_2025_08_07_MODEL: 128000,
+    # Reasoning models (dated)
+    O3_2025_04_16_MODEL: 128000,
+    O4_MINI_2025_04_16_MODEL: 128000,
 }
 
 

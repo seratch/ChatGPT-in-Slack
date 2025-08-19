@@ -9,3 +9,9 @@ TIMEOUT_ERROR_MESSAGE = (
 
 DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
 MAX_MESSAGE_LENGTH = 3000
+
+# Minimal hint when reasoning models exhaust completion tokens and produce no visible text
+REASONING_EMPTY_OUTPUT_HINT = (
+    ":warning: The reasoning model used all completion tokens and did not "
+    "produce visible text. Increase the completion token budget or simplify the request."
+)

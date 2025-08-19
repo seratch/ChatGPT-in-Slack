@@ -9,6 +9,11 @@ from app.openai_constants import (
     GPT_4_1_MODEL,
     GPT_4_1_MINI_MODEL,
     GPT_5_CHAT_LATEST_MODEL,
+    GPT_5_MODEL,
+    GPT_5_MINI_MODEL,
+    GPT_5_NANO_MODEL,
+    O3_MODEL,
+    O4_MINI_MODEL,
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
@@ -440,6 +445,18 @@ def build_configure_modal(context: BoltContext) -> dict:
             "value": GPT_5_CHAT_LATEST_MODEL,
         },
         {
+            "text": {"type": "plain_text", "text": "GPT-5"},
+            "value": GPT_5_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5-mini"},
+            "value": GPT_5_MINI_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5-nano"},
+            "value": GPT_5_NANO_MODEL,
+        },
+        {
             "text": {"type": "plain_text", "text": "GPT-4.1"},
             "value": GPT_4_1_MODEL,
         },
@@ -454,6 +471,14 @@ def build_configure_modal(context: BoltContext) -> dict:
         {
             "text": {"type": "plain_text", "text": "GPT-4o-mini"},
             "value": GPT_4O_MINI_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "o3"},
+            "value": O3_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "o4-mini"},
+            "value": O4_MINI_MODEL,
         },
     ]
     return {
