@@ -102,6 +102,94 @@ def _is_reasoning(model: str) -> bool:
     )
 
 
+def _normalize_base_url(value: Optional[str]) -> Optional[str]:
+    """Normalizes falsy/empty base URLs to None for SDK compatibility."""
+    if value is None:
+        return None
+    trimmed = value.strip()
+    return trimmed or None
+
+
+def _token_budget_kwarg(model: str, budget: int) -> Dict[str, int]:
+    """Returns the correct token budget kwarg for the given model.
+
+    Uses max_completion_tokens for reasoning models and max_tokens otherwise.
+    """
+    return {"max_completion_tokens": budget} if _is_reasoning(model) else {"max_tokens": budget}
+
+
+def _create_chat_completion(
+    *,
+    openai_api_key: str,
+    model: str,
+    temperature: float,
+    messages: List[Dict[str, Union[str, Dict[str, str]]]],
+    user: str,
+    openai_api_type: str,
+    openai_api_base: str,
+    openai_api_version: str,
+    openai_deployment_id: str,
+    openai_organization_id: Optional[str],
+    stream: bool,
+    timeout_seconds: Optional[int] = None,
+    function_call_module_name: Optional[str] = None,
+) -> Union[Completion, Stream[Completion]]:
+    """Creates a chat completion with unified client/kwargs handling.
+
+    Note: Public wrappers are responsible for passing only the parameters
+    relevant to their respective behavior (e.g., timeout for sync only,
+    function calls for streaming only).
+    """
+    if openai_api_type == "azure":
+        client = AzureOpenAI(
+            api_key=openai_api_key,
+            api_version=openai_api_version,
+            azure_endpoint=openai_api_base,
+            azure_deployment=openai_deployment_id,
+        )
+    else:
+        client = OpenAI(
+            api_key=openai_api_key,
+            base_url=_normalize_base_url(openai_api_base),
+            organization=openai_organization_id,
+        )
+
+    # Guard against misuse: streaming calls should not pass timeout_seconds
+    if stream and timeout_seconds is not None:
+        raise ValueError("timeout_seconds must be None for streaming calls")
+
+    is_reasoning = _is_reasoning(model)
+    # Reasoning models use max_completion_tokens; others use max_tokens
+    token_kwarg = _token_budget_kwarg(model, MAX_TOKENS)
+
+    base_kwargs = dict(
+        model=model,
+        messages=messages,
+        n=1,
+        user=user,
+        stream=stream,
+    )
+    if not is_reasoning:
+        base_kwargs["temperature"] = temperature
+        base_kwargs["presence_penalty"] = 0
+        base_kwargs["frequency_penalty"] = 0
+        base_kwargs["logit_bias"] = {}
+        base_kwargs["top_p"] = 1
+
+    extra_kwargs = {}
+    if function_call_module_name is not None:
+        extra_kwargs["functions"] = import_module(function_call_module_name).functions
+    # Keep timeout only for non-streaming calls
+    if not stream and timeout_seconds is not None:
+        extra_kwargs["timeout"] = timeout_seconds
+
+    return client.chat.completions.create(
+        **base_kwargs,
+        **token_kwarg,
+        **extra_kwargs,
+    )
+
+
 def make_synchronous_openai_call(
     *,
     openai_api_key: str,
@@ -116,44 +204,20 @@ def make_synchronous_openai_call(
     openai_organization_id: Optional[str],
     timeout_seconds: int,
 ) -> Completion:
-    if openai_api_type == "azure":
-        client = AzureOpenAI(
-            api_key=openai_api_key,
-            api_version=openai_api_version,
-            azure_endpoint=openai_api_base,
-            azure_deployment=openai_deployment_id,
-        )
-    else:
-        client = OpenAI(
-            api_key=openai_api_key,
-            base_url=openai_api_base,
-            organization=openai_organization_id,
-        )
-    # Some reasoning models require max_completion_tokens instead of max_tokens
-
-    token_kwarg = (
-        {"max_completion_tokens": MAX_TOKENS}
-        if _is_reasoning(model)
-        else {"max_tokens": MAX_TOKENS}
-    )
-
-    base_kwargs = dict(
+    return _create_chat_completion(
+        openai_api_key=openai_api_key,
         model=model,
+        temperature=temperature,
         messages=messages,
-        top_p=1,
-        n=1,
         user=user,
+        openai_api_type=openai_api_type,
+        openai_api_base=openai_api_base,
+        openai_api_version=openai_api_version,
+        openai_deployment_id=openai_deployment_id,
+        openai_organization_id=openai_organization_id,
         stream=False,
-        timeout=timeout_seconds,
-    )
-    if not _is_reasoning(model):
-        base_kwargs["temperature"] = temperature
-        base_kwargs["presence_penalty"] = 0
-        base_kwargs["frequency_penalty"] = 0
-        base_kwargs["logit_bias"] = {}
-    return client.chat.completions.create(
-        **base_kwargs,
-        **token_kwarg,
+        timeout_seconds=timeout_seconds,
+        function_call_module_name=None,
     )
 
 
@@ -171,46 +235,20 @@ def start_receiving_openai_response(
     openai_organization_id: Optional[str],
     function_call_module_name: Optional[str],
 ) -> Stream[Completion]:
-    kwargs = {}
-    if function_call_module_name is not None:
-        kwargs["functions"] = import_module(function_call_module_name).functions
-    if openai_api_type == "azure":
-        client = AzureOpenAI(
-            api_key=openai_api_key,
-            api_version=openai_api_version,
-            azure_endpoint=openai_api_base,
-            azure_deployment=openai_deployment_id,
-        )
-    else:
-        client = OpenAI(
-            api_key=openai_api_key,
-            base_url=openai_api_base,
-            organization=openai_organization_id,
-        )
-
-    token_kwarg = (
-        {"max_completion_tokens": MAX_TOKENS}
-        if _is_reasoning(model)
-        else {"max_tokens": MAX_TOKENS}
-    )
-
-    base_kwargs = dict(
+    return _create_chat_completion(
+        openai_api_key=openai_api_key,
         model=model,
+        temperature=temperature,
         messages=messages,
-        top_p=1,
-        n=1,
         user=user,
+        openai_api_type=openai_api_type,
+        openai_api_base=openai_api_base,
+        openai_api_version=openai_api_version,
+        openai_deployment_id=openai_deployment_id,
+        openai_organization_id=openai_organization_id,
         stream=True,
-    )
-    if not _is_reasoning(model):
-        base_kwargs["temperature"] = temperature
-        base_kwargs["presence_penalty"] = 0
-        base_kwargs["frequency_penalty"] = 0
-        base_kwargs["logit_bias"] = {}
-    return client.chat.completions.create(
-        **base_kwargs,
-        **token_kwarg,
-        **kwargs,
+        timeout_seconds=None,
+        function_call_module_name=function_call_module_name,
     )
 
 
@@ -501,11 +539,7 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
     def _calculate_prompt_tokens(functions) -> int:
         client = create_openai_client(context)
         model = context.get("OPENAI_MODEL")
-        token_kwarg = (
-            {"max_completion_tokens": FUNCTION_CALL_TOKEN_BUDGET}
-            if _is_reasoning(model)
-            else {"max_tokens": FUNCTION_CALL_TOKEN_BUDGET}
-        )
+        token_kwarg = _token_budget_kwarg(model, FUNCTION_CALL_TOKEN_BUDGET)
         return client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": "hello"}],
@@ -697,5 +731,6 @@ def create_openai_client(context: BoltContext) -> Union[OpenAI, AzureOpenAI]:
     else:
         return OpenAI(
             api_key=context.get("OPENAI_API_KEY"),
-            base_url=context.get("OPENAI_API_BASE"),
+            base_url=_normalize_base_url(context.get("OPENAI_API_BASE")),
+            organization=context.get("OPENAI_ORG_ID"),
         )
