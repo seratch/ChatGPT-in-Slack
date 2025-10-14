@@ -1,5 +1,7 @@
 # ChatGPT in Slack
 
+> **:warning: The official Slack integration from OpenAI is now available! You may want to try it first: https://my.slack.com/marketplace/A097V82EGG2-chatgpt**
+
 Introducing a transformative app for Slack users, specifically designed to enhance your communication with [ChatGPT](https://openai.com/blog/chatgpt)!
 This app enables seamless interaction with ChatGPT via Slack channels, optimizing your planning and writing processes by leveraging AI technology.
 
