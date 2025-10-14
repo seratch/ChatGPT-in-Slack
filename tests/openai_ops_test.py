@@ -3,8 +3,11 @@ from app.openai_ops import (
     format_assistant_reply,
     format_openai_message_content,
 )
-from app.openai_constants import GPT_4O_MODEL
-from app.openai_constants import MAX_TOKENS
+from app.openai_constants import (
+    GPT_4O_MODEL,
+    GPT_5_SEARCH_API_MODEL,
+    MAX_TOKENS,
+)
 import pytest
 
 
@@ -152,6 +155,7 @@ def test_messages_within_context_window_passes_model(monkeypatch):
     [
         (GPT_4O_MODEL, False, 0.7, 12, "U123"),
         ("o3", True, 1.0, 5, "U234"),
+        (GPT_5_SEARCH_API_MODEL, False, 0.5, 8, "U345"),
     ],
 )
 def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_reasoning, temperature, timeout, user):
@@ -172,10 +176,22 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
     )
 
     kwargs = fake_clients["create_kwargs"]
+    is_search = kwargs.get("model", "").startswith("gpt-5-search")
     if is_reasoning:
         assert kwargs.get("max_completion_tokens") == MAX_TOKENS
         assert "max_tokens" not in kwargs
         for k in ("temperature", "presence_penalty", "frequency_penalty", "logit_bias"):
+            assert k not in kwargs
+        assert "top_p" not in kwargs
+    elif is_search:
+        assert kwargs.get("max_tokens") == MAX_TOKENS
+        for k in (
+            "temperature",
+            "presence_penalty",
+            "frequency_penalty",
+            "logit_bias",
+            "top_p",
+        ):
             assert k not in kwargs
     else:
         assert kwargs.get("max_tokens") == MAX_TOKENS
@@ -183,11 +199,11 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
         assert kwargs.get("presence_penalty") == 0
         assert kwargs.get("frequency_penalty") == 0
         assert isinstance(kwargs.get("logit_bias"), dict)
-    if is_reasoning:
-        assert "top_p" not in kwargs
-    else:
         assert kwargs.get("top_p") == 1
-    assert kwargs.get("n") == 1
+    if is_search:
+        assert "n" not in kwargs
+    else:
+        assert kwargs.get("n") == 1
     assert kwargs.get("user") == user
     assert kwargs.get("stream") is False
     assert kwargs.get("timeout") == timeout
