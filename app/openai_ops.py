@@ -86,13 +86,13 @@ def messages_within_context_window(
 def _is_reasoning(model: str) -> bool:
     """Returns True if the model is a reasoning model under Chat Completions.
 
-    Excludes chat models like gpt-5-chat-latest. Matches o3*, o4*, and
+    Excludes chat models like gpt-5-chat-latest and gpt-5-search-api. Matches o3*, o4*, and
     non-chat gpt-5* families. Case-insensitive and safe with None/empty.
     """
     if not model:
         return False
     ml = model.lower()
-    if ml.startswith("gpt-5-chat"):
+    if ml.startswith("gpt-5-chat") or ml.startswith("gpt-5-search"):
         return False
     return (
         ml.startswith("o1")
@@ -100,6 +100,13 @@ def _is_reasoning(model: str) -> bool:
         or ml.startswith("o4")
         or ml.startswith("gpt-5")
     )
+
+
+def _is_search_model(model: str) -> bool:
+    """Returns True for search-specific chat models."""
+    if not model:
+        return False
+    return model.lower().startswith("gpt-5-search")
 
 
 def _normalize_base_url(value: Optional[str]) -> Optional[str]:
@@ -159,17 +166,20 @@ def _create_chat_completion(
         raise ValueError("timeout_seconds must be None for streaming calls")
 
     is_reasoning = _is_reasoning(model)
+    is_search = _is_search_model(model)
     # Reasoning models use max_completion_tokens; others use max_tokens
     token_kwarg = _token_budget_kwarg(model, MAX_TOKENS)
 
     base_kwargs = dict(
         model=model,
         messages=messages,
-        n=1,
         user=user,
         stream=stream,
     )
-    if not is_reasoning:
+    if not is_search:
+        base_kwargs["n"] = 1
+
+    if not is_reasoning and not is_search:
         base_kwargs["temperature"] = temperature
         base_kwargs["presence_penalty"] = 0
         base_kwargs["frequency_penalty"] = 0
