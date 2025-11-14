@@ -149,6 +149,24 @@ def test_messages_within_context_window_passes_model(monkeypatch):
     assert captured["model"] == GPT_4O_MODEL
 
 
+@pytest.mark.parametrize(
+    "model,expected",
+    [
+        ("gpt-5-chat-latest", False),
+        ("gpt-5.1-chat-latest", False),
+        ("gpt-5-search-api", False),
+        ("gpt-5.1-2025-11-13", True),
+        ("gpt-5-nano", True),
+        ("o3", True),
+        ("o4-mini", True),
+        ("o1-preview", True),
+        ("gpt-4o", False),
+    ],
+)
+def test_is_reasoning_heuristics(model, expected):
+    assert ops._is_reasoning(model) is expected
+
+
 @pytest.mark.parametrize("api_type", ["openai", "azure"])
 @pytest.mark.parametrize(
     "model,is_reasoning,temperature,timeout,user",
