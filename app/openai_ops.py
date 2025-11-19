@@ -122,9 +122,42 @@ def _normalize_base_url(value: Optional[str]) -> Optional[str]:
 def _token_budget_kwarg(model: str, budget: int) -> Dict[str, int]:
     """Returns the correct token budget kwarg for the given model.
 
-    Uses max_completion_tokens for reasoning models and max_tokens otherwise.
+    - GPT-5 family (including chat/search variants) dropped max_tokens in favor
+      of max_completion_tokens.
+    - Reasoning models (o-series and non-chat GPT-5 variants) also require
+      max_completion_tokens.
+    - Legacy chat models still accept max_tokens.
     """
-    return {"max_completion_tokens": budget} if _is_reasoning(model) else {"max_tokens": budget}
+    should_use_completion_tokens = (
+        (model and model.lower().startswith("gpt-5")) or _is_reasoning(model)
+    )
+
+    return (
+        {"max_completion_tokens": budget}
+        if should_use_completion_tokens
+        else {"max_tokens": budget}
+    )
+
+
+def _sampling_kwargs(model: Optional[str], temperature: float) -> Dict[str, Union[float, Dict]]:
+    """Returns sampling-related kwargs supported by the given model.
+
+    - GPT-5.1 chat variants drop sampling knobs (stay at provider defaults).
+    - Search and reasoning models drop sampling altogether.
+    - Legacy chat models retain the full sampling set (temperature/top_p/penalties/logit_bias).
+    """
+    ml = model.lower() if model else ""
+    if _is_reasoning(model) or _is_search_model(model):
+        return {}
+    if ml.startswith("gpt-5.1"):
+        return {}
+    return {
+        "temperature": temperature,
+        "presence_penalty": 0,
+        "frequency_penalty": 0,
+        "logit_bias": {},
+        "top_p": 1,
+    }
 
 
 def _create_chat_completion(
@@ -169,7 +202,7 @@ def _create_chat_completion(
 
     is_reasoning = _is_reasoning(model)
     is_search = _is_search_model(model)
-    # Reasoning models use max_completion_tokens; others use max_tokens
+    # GPT-5 family and reasoning models use max_completion_tokens; older chat models use max_tokens
     token_kwarg = _token_budget_kwarg(model, MAX_TOKENS)
 
     base_kwargs = dict(
@@ -181,12 +214,7 @@ def _create_chat_completion(
     if not is_search:
         base_kwargs["n"] = 1
 
-    if not is_reasoning and not is_search:
-        base_kwargs["temperature"] = temperature
-        base_kwargs["presence_penalty"] = 0
-        base_kwargs["frequency_penalty"] = 0
-        base_kwargs["logit_bias"] = {}
-        base_kwargs["top_p"] = 1
+    base_kwargs.update(_sampling_kwargs(model, temperature))
 
     extra_kwargs = {}
     if function_call_module_name is not None:
