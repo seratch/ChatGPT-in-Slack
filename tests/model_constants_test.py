@@ -6,11 +6,18 @@ from app.openai_constants import (
     MODEL_CONTEXT_LENGTHS,
     GPT_4_MODEL,
     GPT_4_0613_MODEL,
+    GPT_5_1_MODEL,
+    GPT_5_1_2025_11_13_MODEL,
 )
 
 def test_alias_resolution():
     """Tests that a model alias resolves to its specific version."""
     assert resolve_model_alias(GPT_4_MODEL) == GPT_4_0613_MODEL
+
+
+def test_gpt_5_1_alias_resolution():
+    """Ensures the GPT-5.1 alias resolves to the dated release."""
+    assert resolve_model_alias(GPT_5_1_MODEL) == GPT_5_1_2025_11_13_MODEL
 
 def test_unregistered_model_fails():
     """Tests that resolving an unregistered model raises NotImplementedError."""

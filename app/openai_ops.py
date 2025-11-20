@@ -86,13 +86,15 @@ def messages_within_context_window(
 def _is_reasoning(model: str) -> bool:
     """Returns True if the model is a reasoning model under Chat Completions.
 
-    Excludes chat models like gpt-5-chat-latest and gpt-5-search-api. Matches o3*, o4*, and
-    non-chat gpt-5* families. Case-insensitive and safe with None/empty.
+    Excludes chat models like gpt-5-chat-latest, gpt-5.1-chat-latest, and gpt-5-search-api.
+    Matches o3*, o4*, and non-chat gpt-5* families. Case-insensitive and safe with None/empty.
     """
     if not model:
         return False
     ml = model.lower()
-    if ml.startswith("gpt-5-chat") or ml.startswith("gpt-5-search"):
+    # Treat any gpt-5 family chat/search variants (including numbered updates)
+    # as regular chat models so they keep sampling params.
+    if ml.startswith("gpt-5") and ("-chat" in ml or "-search" in ml):
         return False
     return (
         ml.startswith("o1")
