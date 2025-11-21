@@ -5,6 +5,7 @@ from app.openai_ops import (
 )
 from app.openai_constants import (
     GPT_4O_MODEL,
+    GPT_5_CHAT_LATEST_MODEL,
     GPT_5_SEARCH_API_MODEL,
     MAX_TOKENS,
 )
@@ -174,6 +175,8 @@ def test_is_reasoning_heuristics(model, expected):
         (GPT_4O_MODEL, False, 0.7, 12, "U123"),
         ("o3", True, 1.0, 5, "U234"),
         (GPT_5_SEARCH_API_MODEL, False, 0.5, 8, "U345"),
+        (GPT_5_CHAT_LATEST_MODEL, False, 0.6, 10, "U456"),
+        ("gpt-5.1-chat-latest", False, 0.55, 11, "U567"),
     ],
 )
 def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_reasoning, temperature, timeout, user):
@@ -195,14 +198,24 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
 
     kwargs = fake_clients["create_kwargs"]
     is_search = kwargs.get("model", "").startswith("gpt-5-search")
+    token_keys = {"max_tokens", "max_completion_tokens"} & kwargs.keys()
+    assert len(token_keys) == 1, f"Expected exactly one token key, got {token_keys}"
+    token_key = token_keys.pop()
+
     if is_reasoning:
+        assert token_key == "max_completion_tokens"
         assert kwargs.get("max_completion_tokens") == MAX_TOKENS
-        assert "max_tokens" not in kwargs
-        for k in ("temperature", "presence_penalty", "frequency_penalty", "logit_bias"):
+        for k in (
+            "temperature",
+            "presence_penalty",
+            "frequency_penalty",
+            "logit_bias",
+            "top_p",
+        ):
             assert k not in kwargs
-        assert "top_p" not in kwargs
     elif is_search:
-        assert kwargs.get("max_tokens") == MAX_TOKENS
+        assert token_key == "max_completion_tokens"
+        assert kwargs.get("max_completion_tokens") == MAX_TOKENS
         for k in (
             "temperature",
             "presence_penalty",
@@ -212,12 +225,40 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
         ):
             assert k not in kwargs
     else:
-        assert kwargs.get("max_tokens") == MAX_TOKENS
-        assert kwargs.get("temperature") == temperature
-        assert kwargs.get("presence_penalty") == 0
-        assert kwargs.get("frequency_penalty") == 0
-        assert isinstance(kwargs.get("logit_bias"), dict)
-        assert kwargs.get("top_p") == 1
+        if kwargs.get("model", "").lower().startswith("gpt-5"):
+            assert token_key == "max_completion_tokens"
+            assert kwargs.get("max_completion_tokens") == MAX_TOKENS
+        else:
+            assert token_key == "max_tokens"
+            assert kwargs.get("max_tokens") == MAX_TOKENS
+        sampling_keys = {
+            k
+            for k in (
+                "temperature",
+                "presence_penalty",
+                "frequency_penalty",
+                "logit_bias",
+                "top_p",
+            )
+            if k in kwargs
+        }
+        ml = kwargs.get("model", "").lower()
+        if ml.startswith("gpt-5.1"):
+            assert sampling_keys == set()
+        elif ml.startswith("gpt-5"):
+            assert sampling_keys == {"temperature", "presence_penalty", "frequency_penalty", "logit_bias", "top_p"}
+            assert kwargs.get("temperature") == temperature
+            assert kwargs.get("presence_penalty") == 0
+            assert kwargs.get("frequency_penalty") == 0
+            assert isinstance(kwargs.get("logit_bias"), dict)
+            assert kwargs.get("top_p") == 1
+        else:
+            assert sampling_keys == {"temperature", "presence_penalty", "frequency_penalty", "logit_bias", "top_p"}
+            assert kwargs.get("temperature") == temperature
+            assert kwargs.get("presence_penalty") == 0
+            assert kwargs.get("frequency_penalty") == 0
+            assert isinstance(kwargs.get("logit_bias"), dict)
+            assert kwargs.get("top_p") == 1
     if is_search:
         assert "n" not in kwargs
     else:
