@@ -155,8 +155,10 @@ def test_messages_within_context_window_passes_model(monkeypatch):
     [
         ("gpt-5-chat-latest", False),
         ("gpt-5.1-chat-latest", False),
+        ("gpt-5.2-chat-latest", False),
         ("gpt-5-search-api", False),
         ("gpt-5.1-2025-11-13", True),
+        ("gpt-5.2-2025-12-11", True),
         ("gpt-5-nano", True),
         ("o3", True),
         ("o4-mini", True),
@@ -177,6 +179,7 @@ def test_is_reasoning_heuristics(model, expected):
         (GPT_5_SEARCH_API_MODEL, False, 0.5, 8, "U345"),
         (GPT_5_CHAT_LATEST_MODEL, False, 0.6, 10, "U456"),
         ("gpt-5.1-chat-latest", False, 0.55, 11, "U567"),
+        ("gpt-5.2-chat-latest", False, 0.55, 11, "U678"),
     ],
 )
 def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_reasoning, temperature, timeout, user):
@@ -243,7 +246,7 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
             if k in kwargs
         }
         ml = kwargs.get("model", "").lower()
-        if ml.startswith("gpt-5.1"):
+        if ml.startswith(("gpt-5.1", "gpt-5.2")):
             assert sampling_keys == set()
         elif ml.startswith("gpt-5"):
             assert sampling_keys == {"temperature", "presence_penalty", "frequency_penalty", "logit_bias", "top_p"}

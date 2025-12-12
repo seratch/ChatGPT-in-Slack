@@ -8,6 +8,8 @@ from app.openai_constants import (
     GPT_4O_MINI_MODEL,
     GPT_4_1_MODEL,
     GPT_4_1_MINI_MODEL,
+    GPT_5_2_CHAT_LATEST_MODEL,
+    GPT_5_2_MODEL,
     GPT_5_1_CHAT_LATEST_MODEL,
     GPT_5_1_MODEL,
     GPT_5_CHAT_LATEST_MODEL,
@@ -442,6 +444,14 @@ def build_configure_modal(context: BoltContext) -> dict:
         )
 
     options = [
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.2-chat-latest"},
+            "value": GPT_5_2_CHAT_LATEST_MODEL,
+        },
+        {
+            "text": {"type": "plain_text", "text": "GPT-5.2"},
+            "value": GPT_5_2_MODEL,
+        },
         {
             "text": {"type": "plain_text", "text": "GPT-5.1-chat-latest"},
             "value": GPT_5_1_CHAT_LATEST_MODEL,
