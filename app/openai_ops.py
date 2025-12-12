@@ -86,7 +86,7 @@ def messages_within_context_window(
 def _is_reasoning(model: str) -> bool:
     """Returns True if the model is a reasoning model under Chat Completions.
 
-    Excludes chat models like gpt-5-chat-latest, gpt-5.1-chat-latest, and gpt-5-search-api.
+    Excludes chat models like gpt-5-chat-latest, gpt-5.1-chat-latest, gpt-5.2-chat-latest, and gpt-5-search-api.
     Matches o3*, o4*, and non-chat gpt-5* families. Case-insensitive and safe with None/empty.
     """
     if not model:
@@ -142,14 +142,14 @@ def _token_budget_kwarg(model: str, budget: int) -> Dict[str, int]:
 def _sampling_kwargs(model: Optional[str], temperature: float) -> Dict[str, Union[float, Dict]]:
     """Returns sampling-related kwargs supported by the given model.
 
-    - GPT-5.1 chat variants drop sampling knobs (stay at provider defaults).
+    - GPT-5.1/5.2 chat variants drop sampling knobs (stay at provider defaults).
     - Search and reasoning models drop sampling altogether.
     - Legacy chat models retain the full sampling set (temperature/top_p/penalties/logit_bias).
     """
     ml = model.lower() if model else ""
     if _is_reasoning(model) or _is_search_model(model):
         return {}
-    if ml.startswith("gpt-5.1"):
+    if ml.startswith(("gpt-5.1", "gpt-5.2")):
         return {}
     return {
         "temperature": temperature,
