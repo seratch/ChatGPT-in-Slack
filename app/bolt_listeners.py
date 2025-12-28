@@ -185,10 +185,11 @@ def respond_to_app_mention(
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
+        thread_ts = payload.get("thread_ts") or payload["ts"]
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=payload["ts"],
+            thread_ts=thread_ts,
             loading_text=loading_text,
             messages=messages,
             user=context.user_id,
@@ -208,6 +209,8 @@ def respond_to_app_mention(
                 text=f":warning: The previous message is too long ({num_context_tokens}/{max_context_tokens} prompt tokens).",
                 messages=messages,
                 user=context.user_id,
+                is_final=True,
+                root_thread_ts=wip_reply["message"].get("thread_ts") or wip_reply["message"]["ts"],
             )
         else:
             stream = start_receiving_openai_response(
@@ -232,6 +235,7 @@ def respond_to_app_mention(
                 stream=stream,
                 timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 translate_markdown=TRANSLATE_MARKDOWN,
+                root_thread_ts=thread_ts,
             )
 
     except (APITimeoutError, TimeoutError):
@@ -424,10 +428,11 @@ def respond_to_new_message(
         loading_text = translate(
             openai_api_key=openai_api_key, context=context, text=DEFAULT_LOADING_TEXT
         )
+        root_thread_ts = payload.get("thread_ts") if is_in_dm_with_bot else thread_ts
         wip_reply = post_wip_message(
             client=client,
             channel=context.channel_id,
-            thread_ts=payload.get("thread_ts") if is_in_dm_with_bot else payload["ts"],
+            thread_ts=root_thread_ts,
             loading_text=loading_text,
             messages=messages,
             user=user_id,
@@ -447,6 +452,8 @@ def respond_to_new_message(
                 text=f":warning: The previous message is too long ({num_context_tokens}/{max_context_tokens} prompt tokens).",
                 messages=messages,
                 user=context.user_id,
+                is_final=True,
+                root_thread_ts=root_thread_ts,
             )
         else:
             stream = start_receiving_openai_response(
@@ -489,6 +496,7 @@ def respond_to_new_message(
                 stream=stream,
                 timeout_seconds=OPENAI_TIMEOUT_SECONDS,
                 translate_markdown=TRANSLATE_MARKDOWN,
+                root_thread_ts=root_thread_ts,
             )
 
     except (APITimeoutError, TimeoutError):
