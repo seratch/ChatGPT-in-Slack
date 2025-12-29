@@ -302,6 +302,7 @@ def consume_openai_stream_to_write_reply(
     stream: Stream[Completion],
     timeout_seconds: int,
     translate_markdown: bool,
+    root_thread_ts: Optional[str] = None,
 ):
     start_time = time.time()
     assistant_reply: Dict[str, Union[str, Dict[str, str]]] = {
@@ -314,7 +315,6 @@ def consume_openai_stream_to_write_reply(
     function_call: Dict[str, str] = {"name": "", "arguments": ""}
     finish_reason: Optional[str] = None
     try:
-        loading_character = " ... :writing_hand:"
         for chunk in stream:
             spent_seconds = time.time() - start_time
             if timeout_seconds < spent_seconds:
@@ -344,7 +344,7 @@ def consume_openai_stream_to_write_reply(
                             client=client,
                             channel=context.channel_id,
                             ts=wip_reply["message"]["ts"],
-                            text=assistant_reply_text + loading_character,
+                            text=assistant_reply_text,
                             messages=messages,
                             user=user_id,
                         )
@@ -403,6 +403,7 @@ def consume_openai_stream_to_write_reply(
                 stream=sub_stream,
                 timeout_seconds=int(timeout_seconds - (time.time() - start_time)),
                 translate_markdown=translate_markdown,
+                root_thread_ts=root_thread_ts,
             )
             return
 
@@ -426,6 +427,8 @@ def consume_openai_stream_to_write_reply(
             text=assistant_reply_text,
             messages=messages,
             user=user_id,
+            is_final=True,
+            root_thread_ts=root_thread_ts,
         )
     finally:
         for t in threads:

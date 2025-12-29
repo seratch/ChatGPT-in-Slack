@@ -8,7 +8,12 @@ TIMEOUT_ERROR_MESSAGE = (
 )
 
 DEFAULT_LOADING_TEXT = ":hourglass_flowing_sand: Wait a second, please ..."
+LOADING_SUFFIX = " ... :writing_hand:"
 MAX_MESSAGE_LENGTH = 3000
+# Slack text practical safety limits (UTF-8 bytes)
+# Keep well below Slack's ~40k hard cap to absorb rich text overhead.
+SLACK_INTERIM_MESSAGE_BYTE_LIMIT = 3500  # for chat.update during streaming
+SLACK_POST_MESSAGE_BYTE_LIMIT = 20000    # chunk size for chat.postMessage fallbacks
 
 # Minimal hint when reasoning models exhaust completion tokens and produce no visible text
 REASONING_EMPTY_OUTPUT_HINT = (
