@@ -2,7 +2,7 @@ frameworkVersion: '3'
 service: slack-chat-gpt-bot
 provider:
   name: aws
-  runtime: python3.9
+  runtime: python3.11
   region: us-east-1
   iam:
     role:
