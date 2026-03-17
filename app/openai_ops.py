@@ -142,14 +142,14 @@ def _token_budget_kwarg(model: str, budget: int) -> Dict[str, int]:
 def _sampling_kwargs(model: Optional[str], temperature: float) -> Dict[str, Union[float, Dict]]:
     """Returns sampling-related kwargs supported by the given model.
 
-    - GPT-5.1/5.2 chat variants drop sampling knobs (stay at provider defaults).
+    - GPT-5.1/5.2/5.3 chat variants drop sampling knobs (stay at provider defaults).
     - Search and reasoning models drop sampling altogether.
     - Legacy chat models retain the full sampling set (temperature/top_p/penalties/logit_bias).
     """
     ml = model.lower() if model else ""
     if _is_reasoning(model) or _is_search_model(model):
         return {}
-    if ml.startswith(("gpt-5.1", "gpt-5.2")):
+    if ml.startswith(("gpt-5.1", "gpt-5.2", "gpt-5.3")):
         return {}
     return {
         "temperature": temperature,
