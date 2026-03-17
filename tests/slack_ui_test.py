@@ -4,6 +4,8 @@ from app.slack_ui import build_configure_modal
 from app.openai_constants import (
     GPT_5_3_CHAT_LATEST_MODEL,
     GPT_5_4_MODEL,
+    GPT_5_4_MINI_MODEL,
+    GPT_5_4_NANO_MODEL,
 )
 
 
@@ -27,8 +29,10 @@ def test_build_configure_modal_includes_new_models():
     options = modal["blocks"][1]["element"]["options"]
     values = [option["value"] for option in options]
 
-    assert values[:4] == [
+    assert values[:6] == [
         GPT_5_4_MODEL,
+        GPT_5_4_MINI_MODEL,
+        GPT_5_4_NANO_MODEL,
         GPT_5_3_CHAT_LATEST_MODEL,
         "gpt-5.2-chat-latest",
         "gpt-5.2",
