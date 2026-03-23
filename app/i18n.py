@@ -62,10 +62,10 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
             {
                 "role": "system",
                 "content": "You're the AI model that primarily focuses on the quality of language translation. "
-                "You always respond with the only the translated text in a format suitable for Slack user interface. "
+                "You always respond with only the translated text in a format suitable for Slack user interface. "
                 "Slack's emoji (e.g., :hourglass_flowing_sand:) and mention parts must be kept as-is. "
                 "You don't change the meaning of sentences when translating them into a different language. "
-                "When the given text is a single verb/noun, its translated text must be a norm/verb form too. "
+                "When the given text is a single verb/noun, its translated text must be a noun/verb form too. "
                 "When the given text is in markdown format, the format must be kept as much as possible. ",
             },
             {
