@@ -32,7 +32,7 @@ def fake_clients(monkeypatch):
     - init_azure_kwargs
     - create_kwargs
     """
-    import app.openai_ops as ops
+    import app.openai_api_utils as api_utils
 
     store: dict = {}
 
@@ -55,8 +55,8 @@ def fake_clients(monkeypatch):
             store["init_azure_kwargs"] = kwargs
             self.chat = _FakeChat()
 
-    monkeypatch.setattr(ops, "OpenAI", FakeOpenAI)
-    monkeypatch.setattr(ops, "AzureOpenAI", FakeAzureOpenAI)
+    monkeypatch.setattr(api_utils, "OpenAI", FakeOpenAI)
+    monkeypatch.setattr(api_utils, "AzureOpenAI", FakeAzureOpenAI)
     return store
 
 
@@ -192,7 +192,9 @@ def test_is_reasoning_heuristics(model, expected):
         ("gpt-5.4-nano", True, 0.55, 11, "U902"),
     ],
 )
-def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_reasoning, temperature, timeout, user):
+def test_sync_tokens_and_sampling_behavior(
+    fake_clients, api_type, model, is_reasoning, temperature, timeout, user
+):
     import app.openai_ops as ops
 
     _ = ops.make_synchronous_openai_call(
@@ -202,7 +204,11 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
         messages=[{"role": "user", "content": "hi"}],
         user=user,
         openai_api_type=api_type,
-        openai_api_base=("https://example.invalid/v1" if api_type == "openai" else "https://azure.example"),
+        openai_api_base=(
+            "https://example.invalid/v1"
+            if api_type == "openai"
+            else "https://azure.example"
+        ),
         openai_api_version=("" if api_type == "openai" else "2025-01-01"),
         openai_deployment_id=("" if api_type == "openai" else "dep-xyz"),
         openai_organization_id=None,
@@ -259,14 +265,26 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
         if ml.startswith(("gpt-5.1", "gpt-5.2", "gpt-5.3")):
             assert sampling_keys == set()
         elif ml.startswith("gpt-5"):
-            assert sampling_keys == {"temperature", "presence_penalty", "frequency_penalty", "logit_bias", "top_p"}
+            assert sampling_keys == {
+                "temperature",
+                "presence_penalty",
+                "frequency_penalty",
+                "logit_bias",
+                "top_p",
+            }
             assert kwargs.get("temperature") == temperature
             assert kwargs.get("presence_penalty") == 0
             assert kwargs.get("frequency_penalty") == 0
             assert isinstance(kwargs.get("logit_bias"), dict)
             assert kwargs.get("top_p") == 1
         else:
-            assert sampling_keys == {"temperature", "presence_penalty", "frequency_penalty", "logit_bias", "top_p"}
+            assert sampling_keys == {
+                "temperature",
+                "presence_penalty",
+                "frequency_penalty",
+                "logit_bias",
+                "top_p",
+            }
             assert kwargs.get("temperature") == temperature
             assert kwargs.get("presence_penalty") == 0
             assert kwargs.get("frequency_penalty") == 0
@@ -283,7 +301,9 @@ def test_sync_tokens_and_sampling_behavior(fake_clients, api_type, model, is_rea
 
 @pytest.mark.parametrize("api_type", ["openai", "azure"])
 @pytest.mark.parametrize("with_functions", [True, False])
-def test_stream_functions_and_timeout(fake_clients, api_type, with_functions, monkeypatch):
+def test_stream_functions_and_timeout(
+    fake_clients, api_type, with_functions, monkeypatch
+):
     import app.openai_ops as ops
     import sys
     import types
@@ -291,7 +311,9 @@ def test_stream_functions_and_timeout(fake_clients, api_type, with_functions, mo
     module_name = "app.fake_functions_mod"
     if with_functions:
         fake_mod = types.ModuleType(module_name)
-        fake_mod.functions = [{"name": "add", "parameters": {"type": "object", "properties": {}}}]
+        fake_mod.functions = [
+            {"name": "add", "parameters": {"type": "object", "properties": {}}}
+        ]
         sys.modules[module_name] = fake_mod
     else:
         if module_name in sys.modules:
@@ -304,7 +326,11 @@ def test_stream_functions_and_timeout(fake_clients, api_type, with_functions, mo
         messages=[{"role": "user", "content": "hi"}],
         user="U345",
         openai_api_type=api_type,
-        openai_api_base=("https://api.example/v1" if api_type == "openai" else "https://azure.example"),
+        openai_api_base=(
+            "https://api.example/v1"
+            if api_type == "openai"
+            else "https://azure.example"
+        ),
         openai_api_version=("" if api_type == "openai" else "2025-01-01"),
         openai_deployment_id=("" if api_type == "openai" else "dep-xyz"),
         openai_organization_id=None,
@@ -359,8 +385,11 @@ def test_create_openai_client_azure(fake_clients):
     assert init.get("api_version") == "2025-01-01"
     assert init.get("azure_endpoint") == "https://azure.example"
     assert init.get("azure_deployment") == "dep-1"
+
+
 def test_stream_timeout_guard_raises(fake_clients):
     import app.openai_ops as ops
+
     with pytest.raises(ValueError):
         _ = ops._create_chat_completion(
             openai_api_key="k",
@@ -386,7 +415,9 @@ def test_stream_timeout_guard_raises(fake_clients):
         ("azure", "https://azure.example", "2025-01-01", "dep-xyz", None),
     ],
 )
-def test_sync_client_init_params(fake_clients, api_type, base, version, deployment, org):
+def test_sync_client_init_params(
+    fake_clients, api_type, base, version, deployment, org
+):
     import app.openai_ops as ops
 
     _ = ops.make_synchronous_openai_call(
