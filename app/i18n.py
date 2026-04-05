@@ -1,9 +1,13 @@
 from typing import Optional
 
-from openai import OpenAI
-from openai.lib.azure import AzureOpenAI
 from slack_bolt import BoltContext
 
+from .openai_api_utils import (
+    build_openai_client,
+    is_search_model,
+    sampling_kwargs,
+    token_budget_kwarg,
+)
 from .openai_constants import GPT_4O_MINI_MODEL
 
 # All the supported languages for Slack app as of March 2023
@@ -31,6 +35,9 @@ def from_locale_to_lang(locale: Optional[str]) -> Optional[str]:
 
 
 _translation_result_cache = {}
+TRANSLATION_MODEL = GPT_4O_MINI_MODEL
+TRANSLATION_TEMPERATURE = 1
+TRANSLATION_TOKEN_BUDGET = 1024
 
 
 def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str) -> str:
@@ -44,21 +51,16 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
     cached_result = _translation_result_cache.get(f"{lang}:{text}")
     if cached_result is not None:
         return cached_result
-    if context.get("OPENAI_API_TYPE") == "azure":
-        client = AzureOpenAI(
-            api_key=openai_api_key,
-            api_version=context.get("OPENAI_API_VERSION"),
-            azure_endpoint=context.get("OPENAI_API_BASE"),
-            azure_deployment=context.get("OPENAI_DEPLOYMENT_ID"),
-        )
-    else:
-        client = OpenAI(
-            api_key=openai_api_key,
-            base_url=context.get("OPENAI_API_BASE"),
-        )
-    response = client.chat.completions.create(
-        model=GPT_4O_MINI_MODEL,
-        messages=[
+    client = build_openai_client(
+        openai_api_key=openai_api_key,
+        openai_api_type=context.get("OPENAI_API_TYPE"),
+        openai_api_base=context.get("OPENAI_API_BASE"),
+        openai_api_version=context.get("OPENAI_API_VERSION"),
+        openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
+    )
+    request_kwargs = {
+        "model": TRANSLATION_MODEL,
+        "messages": [
             {
                 "role": "system",
                 "content": "You're the AI model that primarily focuses on the quality of language translation. "
@@ -77,14 +79,16 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
                 f"Here is the original sentence you need to translate:\n{text}",
             },
         ],
-        top_p=1,
-        n=1,
-        max_tokens=1024,
-        temperature=1,
-        presence_penalty=0,
-        frequency_penalty=0,
-        logit_bias={},
-        user="system",
+        "user": "system",
+    }
+    if not is_search_model(TRANSLATION_MODEL):
+        request_kwargs["n"] = 1
+    request_kwargs.update(
+        token_budget_kwarg(TRANSLATION_MODEL, TRANSLATION_TOKEN_BUDGET)
+    )
+    request_kwargs.update(sampling_kwargs(TRANSLATION_MODEL, TRANSLATION_TEMPERATURE))
+    response = client.chat.completions.create(
+        **request_kwargs,
     )
     translated_text = response.model_dump()["choices"][0]["message"].get("content")
     _translation_result_cache[f"{lang}:{text}"] = translated_text

@@ -6,8 +6,7 @@ import json
 from typing import List, Dict, Tuple, Optional, Union
 from importlib import import_module
 
-from openai import OpenAI, Stream
-from openai.lib.azure import AzureOpenAI
+from openai import Stream
 from openai.types import Completion
 import tiktoken
 
@@ -15,6 +14,14 @@ from slack_bolt import BoltContext
 from slack_sdk.web import WebClient, SlackResponse
 
 from app.markdown_conversion import slack_to_markdown, markdown_to_slack
+from app.openai_api_utils import (
+    build_openai_client,
+    is_reasoning_model,
+    is_search_model,
+    normalize_base_url,
+    sampling_kwargs,
+    token_budget_kwarg,
+)
 from app.openai_constants import (
     MAX_TOKENS,
     MODEL_TOKENS,
@@ -89,34 +96,17 @@ def _is_reasoning(model: str) -> bool:
     Excludes chat models like gpt-5-chat-latest, gpt-5.1-chat-latest, gpt-5.2-chat-latest, and gpt-5-search-api.
     Matches o3*, o4*, and non-chat gpt-5* families. Case-insensitive and safe with None/empty.
     """
-    if not model:
-        return False
-    ml = model.lower()
-    # Treat any gpt-5 family chat/search variants (including numbered updates)
-    # as regular chat models so they keep sampling params.
-    if ml.startswith("gpt-5") and ("-chat" in ml or "-search" in ml):
-        return False
-    return (
-        ml.startswith("o1")
-        or ml.startswith("o3")
-        or ml.startswith("o4")
-        or ml.startswith("gpt-5")
-    )
+    return is_reasoning_model(model)
 
 
 def _is_search_model(model: str) -> bool:
     """Returns True for search-specific chat models."""
-    if not model:
-        return False
-    return model.lower().startswith("gpt-5-search")
+    return is_search_model(model)
 
 
 def _normalize_base_url(value: Optional[str]) -> Optional[str]:
     """Normalizes falsy/empty base URLs to None for SDK compatibility."""
-    if value is None:
-        return None
-    trimmed = value.strip()
-    return trimmed or None
+    return normalize_base_url(value)
 
 
 def _token_budget_kwarg(model: str, budget: int) -> Dict[str, int]:
@@ -128,36 +118,19 @@ def _token_budget_kwarg(model: str, budget: int) -> Dict[str, int]:
       max_completion_tokens.
     - Legacy chat models still accept max_tokens.
     """
-    should_use_completion_tokens = (
-        (model and model.lower().startswith("gpt-5")) or _is_reasoning(model)
-    )
-
-    return (
-        {"max_completion_tokens": budget}
-        if should_use_completion_tokens
-        else {"max_tokens": budget}
-    )
+    return token_budget_kwarg(model, budget)
 
 
-def _sampling_kwargs(model: Optional[str], temperature: float) -> Dict[str, Union[float, Dict]]:
+def _sampling_kwargs(
+    model: Optional[str], temperature: float
+) -> Dict[str, Union[float, Dict]]:
     """Returns sampling-related kwargs supported by the given model.
 
     - GPT-5.1/5.2/5.3 chat variants drop sampling knobs (stay at provider defaults).
     - Search and reasoning models drop sampling altogether.
     - Legacy chat models retain the full sampling set (temperature/top_p/penalties/logit_bias).
     """
-    ml = model.lower() if model else ""
-    if _is_reasoning(model) or _is_search_model(model):
-        return {}
-    if ml.startswith(("gpt-5.1", "gpt-5.2", "gpt-5.3")):
-        return {}
-    return {
-        "temperature": temperature,
-        "presence_penalty": 0,
-        "frequency_penalty": 0,
-        "logit_bias": {},
-        "top_p": 1,
-    }
+    return sampling_kwargs(model, temperature)
 
 
 def _create_chat_completion(
@@ -182,19 +155,14 @@ def _create_chat_completion(
     relevant to their respective behavior (e.g., timeout for sync only,
     function calls for streaming only).
     """
-    if openai_api_type == "azure":
-        client = AzureOpenAI(
-            api_key=openai_api_key,
-            api_version=openai_api_version,
-            azure_endpoint=openai_api_base,
-            azure_deployment=openai_deployment_id,
-        )
-    else:
-        client = OpenAI(
-            api_key=openai_api_key,
-            base_url=_normalize_base_url(openai_api_base),
-            organization=openai_organization_id,
-        )
+    client = build_openai_client(
+        openai_api_key=openai_api_key,
+        openai_api_type=openai_api_type,
+        openai_api_base=openai_api_base,
+        openai_api_version=openai_api_version,
+        openai_deployment_id=openai_deployment_id,
+        openai_organization_id=openai_organization_id,
+    )
 
     # Guard against misuse: streaming calls should not pass timeout_seconds
     if stream and timeout_seconds is not None:
@@ -766,17 +734,12 @@ def generate_chatgpt_response(
     return content
 
 
-def create_openai_client(context: BoltContext) -> Union[OpenAI, AzureOpenAI]:
-    if context.get("OPENAI_API_TYPE") == "azure":
-        return AzureOpenAI(
-            api_key=context.get("OPENAI_API_KEY"),
-            api_version=context.get("OPENAI_API_VERSION"),
-            azure_endpoint=context.get("OPENAI_API_BASE"),
-            azure_deployment=context.get("OPENAI_DEPLOYMENT_ID"),
-        )
-    else:
-        return OpenAI(
-            api_key=context.get("OPENAI_API_KEY"),
-            base_url=_normalize_base_url(context.get("OPENAI_API_BASE")),
-            organization=context.get("OPENAI_ORG_ID"),
-        )
+def create_openai_client(context: BoltContext):
+    return build_openai_client(
+        openai_api_key=context.get("OPENAI_API_KEY"),
+        openai_api_type=context.get("OPENAI_API_TYPE"),
+        openai_api_base=context.get("OPENAI_API_BASE"),
+        openai_api_version=context.get("OPENAI_API_VERSION"),
+        openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
+        openai_organization_id=context.get("OPENAI_ORG_ID"),
+    )
