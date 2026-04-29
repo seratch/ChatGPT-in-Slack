@@ -9,6 +9,7 @@ from app.openai_constants import (
     GPT_5_SEARCH_API_MODEL,
     GPT_5_3_CHAT_LATEST_MODEL,
     GPT_5_4_MODEL,
+    GPT_5_5_MODEL,
     MAX_TOKENS,
 )
 import pytest
@@ -165,6 +166,8 @@ def test_messages_within_context_window_passes_model(monkeypatch):
         ("gpt-5.4", True),
         ("gpt-5.4-mini", True),
         ("gpt-5.4-nano", True),
+        ("gpt-5.5", True),
+        ("gpt-5.5-2026-04-23", True),
         ("gpt-5-nano", True),
         ("o3", True),
         ("o4-mini", True),
@@ -188,6 +191,7 @@ def test_is_reasoning_heuristics(model, expected):
         ("gpt-5.2-chat-latest", False, 0.55, 11, "U678"),
         (GPT_5_3_CHAT_LATEST_MODEL, False, 0.55, 11, "U789"),
         (GPT_5_4_MODEL, True, 0.55, 11, "U890"),
+        (GPT_5_5_MODEL, True, 0.55, 11, "U895"),
         ("gpt-5.4-mini", True, 0.55, 11, "U901"),
         ("gpt-5.4-nano", True, 0.55, 11, "U902"),
     ],

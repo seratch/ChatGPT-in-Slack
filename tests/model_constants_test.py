@@ -16,6 +16,8 @@ from app.openai_constants import (
     GPT_5_4_2026_03_05_MODEL,
     GPT_5_4_MINI_2026_03_17_MODEL,
     GPT_5_4_NANO_2026_03_17_MODEL,
+    GPT_5_5_MODEL,
+    GPT_5_5_2026_04_23_MODEL,
 )
 
 def test_alias_resolution():
@@ -42,6 +44,10 @@ def test_gpt_5_4_mini_alias_resolution():
 def test_gpt_5_4_nano_alias_resolution():
     """Ensures the GPT-5.4-nano alias resolves to the dated release."""
     assert resolve_model_alias(GPT_5_4_NANO_MODEL) == GPT_5_4_NANO_2026_03_17_MODEL
+
+def test_gpt_5_5_alias_resolution():
+    """Ensures the GPT-5.5 alias resolves to the dated release."""
+    assert resolve_model_alias(GPT_5_5_MODEL) == GPT_5_5_2026_04_23_MODEL
 
 def test_unregistered_model_fails():
     """Tests that resolving an unregistered model raises NotImplementedError."""
