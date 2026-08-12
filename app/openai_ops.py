@@ -20,6 +20,7 @@ from app.openai_api_utils import (
     is_search_model,
     normalize_base_url,
     request_model,
+    reasoning_effort_kwargs,
     sampling_kwargs,
     token_budget_kwarg,
 )
@@ -180,6 +181,13 @@ def _create_chat_completion(
     if not is_search:
         base_kwargs["n"] = 1
 
+    base_kwargs.update(
+        reasoning_effort_kwargs(
+            model,
+            function_calling=function_call_module_name is not None,
+            openai_api_type=openai_api_type,
+        )
+    )
     base_kwargs.update(_sampling_kwargs(model, temperature))
 
     extra_kwargs = {}
@@ -556,6 +564,11 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
             messages=[{"role": "user", "content": "hello"}],
             user="system",
             **token_kwarg,
+            **reasoning_effort_kwargs(
+                model,
+                function_calling=functions is not None,
+                openai_api_type=context.get("OPENAI_API_TYPE"),
+            ),
             **({"functions": functions} if functions is not None else {}),
         ).model_dump()["usage"]["prompt_tokens"]
 

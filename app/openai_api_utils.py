@@ -90,6 +90,19 @@ def sampling_kwargs(
     }
 
 
+def reasoning_effort_kwargs(
+    model: Optional[str],
+    *,
+    function_calling: bool = False,
+    openai_api_type: Optional[str] = None,
+) -> Dict[str, str]:
+    """Returns compatible low-latency reasoning settings for Luna requests."""
+    if model and model.lower() == "gpt-5.6-luna":
+        effort = "low" if function_calling and openai_api_type != "azure" else "none"
+        return {"reasoning_effort": effort}
+    return {}
+
+
 def build_openai_client(
     *,
     openai_api_key: str,

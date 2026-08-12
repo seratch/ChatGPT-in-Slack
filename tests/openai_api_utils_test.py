@@ -65,6 +65,20 @@ def test_sampling_and_token_budget_for_gpt_5_6_models():
         assert sampling == {}
 
 
+def test_reasoning_effort_for_gpt_5_6_luna():
+    assert api_utils.reasoning_effort_kwargs("gpt-5.6-luna") == {
+        "reasoning_effort": "none"
+    }
+    assert api_utils.reasoning_effort_kwargs("gpt-5.6-luna", function_calling=True) == {
+        "reasoning_effort": "low"
+    }
+    assert api_utils.reasoning_effort_kwargs(
+        "gpt-5.6-luna", function_calling=True, openai_api_type="azure"
+    ) == {"reasoning_effort": "none"}
+    assert api_utils.reasoning_effort_kwargs("gpt-5.6-terra") == {}
+    assert api_utils.reasoning_effort_kwargs("gpt-4o-mini") == {}
+
+
 def test_sampling_and_token_budget_for_chat_latest():
     token_kwargs = api_utils.token_budget_kwarg("chat-latest", 1024)
     sampling = api_utils.sampling_kwargs("chat-latest", 0.75)

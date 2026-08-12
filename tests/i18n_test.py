@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 import app.i18n as i18n
-from app.openai_constants import GPT_4O_MINI_MODEL
+from app.openai_constants import GPT_4O_MODEL, GPT_5_6_LUNA_MODEL
 
 
 @pytest.fixture(autouse=True)
@@ -20,6 +20,7 @@ def make_context(*, locale="zh-TW", api_type=None, api_base="https://api.example
             "OPENAI_API_TYPE": api_type,
             "OPENAI_API_BASE": api_base,
             "OPENAI_DEPLOYMENT_ID": "dep-1",
+            "OPENAI_MODEL": GPT_4O_MODEL,
         }
         return values.get(key, default)
 
@@ -50,7 +51,7 @@ def test_translate_returns_original_text_for_english_locale():
 
 @pytest.mark.parametrize(
     "api_type,expected_model",
-    [(None, GPT_4O_MINI_MODEL), ("azure", "dep-1")],
+    [(None, GPT_5_6_LUNA_MODEL), ("azure", "dep-1")],
 )
 def test_translate_uses_configured_translation_model_and_caches(
     monkeypatch, api_type, expected_model
@@ -89,7 +90,8 @@ def test_translate_uses_configured_translation_model_and_caches(
     assert captured["kwargs"]["model"] == expected_model
     assert captured["kwargs"]["n"] == 1
     assert captured["kwargs"]["user"] == "system"
-    assert captured["kwargs"]["max_tokens"] == 1024
-    assert "max_completion_tokens" not in captured["kwargs"]
-    assert captured["kwargs"]["temperature"] == 1
-    assert captured["kwargs"]["top_p"] == 1
+    assert captured["kwargs"]["max_completion_tokens"] == 1024
+    assert "max_tokens" not in captured["kwargs"]
+    assert captured["kwargs"]["reasoning_effort"] == "none"
+    assert "temperature" not in captured["kwargs"]
+    assert "top_p" not in captured["kwargs"]

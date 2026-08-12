@@ -310,6 +310,10 @@ def test_sync_tokens_and_sampling_behavior(
     else:
         assert kwargs.get("n") == 1
     assert kwargs.get("user") == user
+    if model == GPT_5_6_LUNA_MODEL:
+        assert kwargs.get("reasoning_effort") == "none"
+    else:
+        assert "reasoning_effort" not in kwargs
     assert kwargs.get("stream") is False
     assert kwargs.get("timeout") == timeout
     assert kwargs.get("model") == ("dep-xyz" if api_type == "azure" else model)
@@ -317,8 +321,9 @@ def test_sync_tokens_and_sampling_behavior(
 
 @pytest.mark.parametrize("api_type", ["openai", "azure"])
 @pytest.mark.parametrize("with_functions", [True, False])
+@pytest.mark.parametrize("model", [GPT_4O_MODEL, GPT_5_6_LUNA_MODEL])
 def test_stream_functions_and_timeout(
-    fake_clients, api_type, with_functions, monkeypatch
+    fake_clients, api_type, with_functions, model, monkeypatch
 ):
     import app.openai_ops as ops
     import sys
@@ -337,7 +342,7 @@ def test_stream_functions_and_timeout(
 
     _ = ops.start_receiving_openai_response(
         openai_api_key="k",
-        model=GPT_4O_MODEL,
+        model=model,
         temperature=0.5,
         messages=[{"role": "user", "content": "hi"}],
         user="U345",
@@ -356,7 +361,12 @@ def test_stream_functions_and_timeout(
     assert kwargs.get("stream") is True
     assert "timeout" not in kwargs
     assert ("functions" in kwargs) is with_functions
-    assert kwargs.get("model") == ("dep-xyz" if api_type == "azure" else GPT_4O_MODEL)
+    assert kwargs.get("model") == ("dep-xyz" if api_type == "azure" else model)
+    if model == GPT_5_6_LUNA_MODEL:
+        expected_effort = "low" if with_functions and api_type == "openai" else "none"
+        assert kwargs.get("reasoning_effort") == expected_effort
+    else:
+        assert "reasoning_effort" not in kwargs
 
 
 @pytest.mark.parametrize("base_url", ["", "   "])
@@ -398,6 +408,48 @@ def test_create_openai_client_azure(fake_clients):
     assert init.get("api_key") == "k"
     assert init.get("base_url") == "https://azure.example/openai/v1/"
     assert "organization" not in init
+
+
+@pytest.mark.parametrize(
+    "api_type,expected_function_effort", [(None, "low"), ("azure", "none")]
+)
+def test_function_call_token_probe_uses_luna_reasoning_effort(
+    monkeypatch, api_type, expected_function_effort
+):
+    import app.openai_ops as ops
+
+    calls = []
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            prompt_tokens = 8 if "functions" in kwargs else 3
+            return _FakeResponse({"usage": {"prompt_tokens": prompt_tokens}})
+
+    class FakeClient:
+        class Chat:
+            completions = FakeCompletions()
+
+        chat = Chat()
+
+    class FakeModule:
+        functions = [{"name": "lookup", "parameters": {"type": "object"}}]
+
+    class FakeContext:
+        def get(self, key):
+            return {
+                "OPENAI_FUNCTION_CALL_MODULE_NAME": "app.fake_functions_mod",
+                "OPENAI_MODEL": GPT_5_6_LUNA_MODEL,
+                "OPENAI_API_TYPE": api_type,
+            }.get(key)
+
+    monkeypatch.setattr(ops, "_prompt_tokens_used_by_function_call_cache", None)
+    monkeypatch.setattr(ops, "create_openai_client", lambda context: FakeClient())
+    monkeypatch.setattr(ops, "import_module", lambda name: FakeModule())
+
+    assert ops.calculate_tokens_necessary_for_function_call(FakeContext()) == 5
+    assert calls[0]["reasoning_effort"] == expected_function_effort
+    assert calls[1]["reasoning_effort"] == "none"
 
 
 def test_stream_timeout_guard_raises(fake_clients):

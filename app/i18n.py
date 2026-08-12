@@ -6,10 +6,11 @@ from .openai_api_utils import (
     build_openai_client,
     is_search_model,
     request_model,
+    reasoning_effort_kwargs,
     sampling_kwargs,
     token_budget_kwarg,
 )
-from .openai_constants import GPT_4O_MINI_MODEL
+from .openai_constants import GPT_5_6_LUNA_MODEL
 
 # All the supported languages for Slack app as of March 2023
 _locale_to_lang = {
@@ -36,7 +37,7 @@ def from_locale_to_lang(locale: Optional[str]) -> Optional[str]:
 
 
 _translation_result_cache = {}
-TRANSLATION_MODEL = GPT_4O_MINI_MODEL
+TRANSLATION_MODEL = GPT_5_6_LUNA_MODEL
 TRANSLATION_TEMPERATURE = 1
 TRANSLATION_TOKEN_BUDGET = 1024
 
@@ -89,6 +90,7 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
     request_kwargs.update(
         token_budget_kwarg(TRANSLATION_MODEL, TRANSLATION_TOKEN_BUDGET)
     )
+    request_kwargs.update(reasoning_effort_kwargs(TRANSLATION_MODEL))
     request_kwargs.update(sampling_kwargs(TRANSLATION_MODEL, TRANSLATION_TEMPERATURE))
     response = client.chat.completions.create(
         **request_kwargs,
