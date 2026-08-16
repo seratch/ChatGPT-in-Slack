@@ -19,7 +19,6 @@ def make_context(*, locale="zh-TW", api_type=None, api_base="https://api.example
             "locale": locale,
             "OPENAI_API_TYPE": api_type,
             "OPENAI_API_BASE": api_base,
-            "OPENAI_API_VERSION": "2025-01-01",
             "OPENAI_DEPLOYMENT_ID": "dep-1",
         }
         return values.get(key, default)
@@ -49,7 +48,13 @@ def test_translate_returns_original_text_for_english_locale():
     )
 
 
-def test_translate_uses_configured_translation_model_and_caches(monkeypatch):
+@pytest.mark.parametrize(
+    "api_type,expected_model",
+    [(None, GPT_4O_MINI_MODEL), ("azure", "dep-1")],
+)
+def test_translate_uses_configured_translation_model_and_caches(
+    monkeypatch, api_type, expected_model
+):
     captured = {"calls": 0, "kwargs": None}
 
     class FakeCompletions:
@@ -74,14 +79,14 @@ def test_translate_uses_configured_translation_model_and_caches(monkeypatch):
         lambda **kwargs: FakeClient(),
     )
 
-    context = make_context()
+    context = make_context(api_type=api_type)
     first = i18n.translate(openai_api_key="sk-test", context=context, text="Hello")
     second = i18n.translate(openai_api_key="sk-test", context=context, text="Hello")
 
     assert first == "翻譯結果"
     assert second == "翻譯結果"
     assert captured["calls"] == 1
-    assert captured["kwargs"]["model"] == GPT_4O_MINI_MODEL
+    assert captured["kwargs"]["model"] == expected_model
     assert captured["kwargs"]["n"] == 1
     assert captured["kwargs"]["user"] == "system"
     assert captured["kwargs"]["max_tokens"] == 1024

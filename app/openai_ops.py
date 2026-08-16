@@ -19,6 +19,7 @@ from app.openai_api_utils import (
     is_reasoning_model,
     is_search_model,
     normalize_base_url,
+    request_model,
     sampling_kwargs,
     token_budget_kwarg,
 )
@@ -142,7 +143,6 @@ def _create_chat_completion(
     user: str,
     openai_api_type: str,
     openai_api_base: str,
-    openai_api_version: str,
     openai_deployment_id: str,
     openai_organization_id: Optional[str],
     stream: bool,
@@ -159,8 +159,6 @@ def _create_chat_completion(
         openai_api_key=openai_api_key,
         openai_api_type=openai_api_type,
         openai_api_base=openai_api_base,
-        openai_api_version=openai_api_version,
-        openai_deployment_id=openai_deployment_id,
         openai_organization_id=openai_organization_id,
     )
 
@@ -174,7 +172,7 @@ def _create_chat_completion(
     token_kwarg = _token_budget_kwarg(model, MAX_TOKENS)
 
     base_kwargs = dict(
-        model=model,
+        model=request_model(model, openai_api_type, openai_deployment_id),
         messages=messages,
         user=user,
         stream=stream,
@@ -207,7 +205,6 @@ def make_synchronous_openai_call(
     user: str,
     openai_api_type: str,
     openai_api_base: str,
-    openai_api_version: str,
     openai_deployment_id: str,
     openai_organization_id: Optional[str],
     timeout_seconds: int,
@@ -220,7 +217,6 @@ def make_synchronous_openai_call(
         user=user,
         openai_api_type=openai_api_type,
         openai_api_base=openai_api_base,
-        openai_api_version=openai_api_version,
         openai_deployment_id=openai_deployment_id,
         openai_organization_id=openai_organization_id,
         stream=False,
@@ -238,7 +234,6 @@ def start_receiving_openai_response(
     user: str,
     openai_api_type: str,
     openai_api_base: str,
-    openai_api_version: str,
     openai_deployment_id: str,
     openai_organization_id: Optional[str],
     function_call_module_name: Optional[str],
@@ -251,7 +246,6 @@ def start_receiving_openai_response(
         user=user,
         openai_api_type=openai_api_type,
         openai_api_base=openai_api_base,
-        openai_api_version=openai_api_version,
         openai_deployment_id=openai_deployment_id,
         openai_organization_id=openai_organization_id,
         stream=True,
@@ -357,7 +351,6 @@ def consume_openai_stream_to_write_reply(
                 user=user_id,
                 openai_api_type=context.get("OPENAI_API_TYPE"),
                 openai_api_base=context.get("OPENAI_API_BASE"),
-                openai_api_version=context.get("OPENAI_API_VERSION"),
                 openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
                 openai_organization_id=context["OPENAI_ORG_ID"],
                 function_call_module_name=function_call_module_name,
@@ -555,7 +548,11 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
         model = context.get("OPENAI_MODEL")
         token_kwarg = _token_budget_kwarg(model, FUNCTION_CALL_TOKEN_BUDGET)
         return client.chat.completions.create(
-            model=model,
+            model=request_model(
+                model,
+                context.get("OPENAI_API_TYPE"),
+                context.get("OPENAI_DEPLOYMENT_ID"),
+            ),
             messages=[{"role": "user", "content": "hello"}],
             user="system",
             **token_kwarg,
@@ -605,7 +602,6 @@ def generate_slack_thread_summary(
         user=context.actor_user_id,
         openai_api_type=context["OPENAI_API_TYPE"],
         openai_api_base=context["OPENAI_API_BASE"],
-        openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
         openai_organization_id=context["OPENAI_ORG_ID"],
         timeout_seconds=timeout_seconds,
@@ -667,7 +663,6 @@ def generate_proofreading_result(
         user=context.actor_user_id,
         openai_api_type=context["OPENAI_API_TYPE"],
         openai_api_base=context["OPENAI_API_BASE"],
-        openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
         openai_organization_id=context["OPENAI_ORG_ID"],
         timeout_seconds=timeout_seconds,
@@ -715,7 +710,6 @@ def generate_chatgpt_response(
         user=context.actor_user_id,
         openai_api_type=context["OPENAI_API_TYPE"],
         openai_api_base=context["OPENAI_API_BASE"],
-        openai_api_version=context["OPENAI_API_VERSION"],
         openai_deployment_id=context["OPENAI_DEPLOYMENT_ID"],
         openai_organization_id=context["OPENAI_ORG_ID"],
         timeout_seconds=timeout_seconds,
@@ -739,7 +733,5 @@ def create_openai_client(context: BoltContext):
         openai_api_key=context.get("OPENAI_API_KEY"),
         openai_api_type=context.get("OPENAI_API_TYPE"),
         openai_api_base=context.get("OPENAI_API_BASE"),
-        openai_api_version=context.get("OPENAI_API_VERSION"),
-        openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
         openai_organization_id=context.get("OPENAI_ORG_ID"),
     )

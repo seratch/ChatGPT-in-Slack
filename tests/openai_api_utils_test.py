@@ -1,4 +1,29 @@
+import pytest
+
 import app.openai_api_utils as api_utils
+
+
+def test_azure_v1_base_url():
+    assert (
+        api_utils.azure_v1_base_url("https://example.openai.azure.com")
+        == "https://example.openai.azure.com/openai/v1/"
+    )
+    assert (
+        api_utils.azure_v1_base_url("https://example.openai.azure.com/openai/v1/")
+        == "https://example.openai.azure.com/openai/v1/"
+    )
+
+
+@pytest.mark.parametrize("base_url", [None, "", "https://api.openai.com/v1"])
+def test_azure_v1_base_url_requires_azure_resource(base_url):
+    with pytest.raises(ValueError, match="OPENAI_API_BASE"):
+        api_utils.azure_v1_base_url(base_url)
+
+
+def test_request_model_uses_azure_deployment():
+    assert api_utils.request_model("gpt-4o", None, "deployment") == "gpt-4o"
+    assert api_utils.request_model("gpt-4o", "azure", "deployment") == "deployment"
+    assert api_utils.request_model("gpt-4o", "azure", None) == "gpt-4o"
 
 
 def test_sampling_and_token_budget_for_gpt_4o_mini():

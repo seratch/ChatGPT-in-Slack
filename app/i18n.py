@@ -5,6 +5,7 @@ from slack_bolt import BoltContext
 from .openai_api_utils import (
     build_openai_client,
     is_search_model,
+    request_model,
     sampling_kwargs,
     token_budget_kwarg,
 )
@@ -55,11 +56,13 @@ def translate(*, openai_api_key: Optional[str], context: BoltContext, text: str)
         openai_api_key=openai_api_key,
         openai_api_type=context.get("OPENAI_API_TYPE"),
         openai_api_base=context.get("OPENAI_API_BASE"),
-        openai_api_version=context.get("OPENAI_API_VERSION"),
-        openai_deployment_id=context.get("OPENAI_DEPLOYMENT_ID"),
     )
     request_kwargs = {
-        "model": TRANSLATION_MODEL,
+        "model": request_model(
+            TRANSLATION_MODEL,
+            context.get("OPENAI_API_TYPE"),
+            context.get("OPENAI_DEPLOYMENT_ID"),
+        ),
         "messages": [
             {
                 "role": "system",

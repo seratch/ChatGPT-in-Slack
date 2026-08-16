@@ -108,13 +108,12 @@ export REDACTION_ENABLED=true
 # Optional: When the string is "true", this app shares image files with OpenAI (default: false)
 export IMAGE_FILE_ACCESS_ENABLED=true
 
-# To use Azure OpenAI, set the following optional environment variables according to your environment
+# To use the stable Azure OpenAI v1 API, set the following optional environment variables according to your environment
+# Remove any existing OPENAI_API_VERSION setting; v1 does not use dated API versions.
 # default: None
 export OPENAI_API_TYPE=azure
 # default: https://api.openai.com/v1
 export OPENAI_API_BASE=https://YOUR_RESOURCE_NAME.openai.azure.com
-# default: None
-export OPENAI_API_VERSION=2023-05-15
 # default: None
 export OPENAI_DEPLOYMENT_ID=YOUR-DEPLOYMENT-ID
 

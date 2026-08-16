@@ -2,6 +2,10 @@ import pytest
 from PIL import Image
 from io import BytesIO
 import base64
+from types import SimpleNamespace
+from unittest.mock import MagicMock
+
+import app.openai_image_ops as image_ops
 from app.openai_image_ops import encode_image_and_guess_format
 
 # Constants
@@ -37,3 +41,39 @@ def test_encode_image_and_guess_format(image_format, expected_mode):
     assert decoded_image.format == image_format
     assert decoded_image.size == IMAGE_DIMENSIONS
     assert decoded_image.mode == expected_mode
+
+
+def test_image_requests_use_azure_deployment(monkeypatch):
+    images = MagicMock()
+    images.generate.return_value = SimpleNamespace(
+        data=[SimpleNamespace(url="https://example.com/image.png")]
+    )
+    images.create_variation.return_value = SimpleNamespace(
+        data=[SimpleNamespace(url="https://example.com/variation.png")]
+    )
+    monkeypatch.setattr(
+        image_ops,
+        "create_openai_client",
+        lambda context: SimpleNamespace(images=images),
+    )
+    context = {
+        "OPENAI_IMAGE_GENERATION_MODEL": "dall-e-3",
+        "OPENAI_API_TYPE": "azure",
+        "OPENAI_DEPLOYMENT_ID": "image-deployment",
+    }
+
+    generated = image_ops.generate_image(
+        context=context,  # type: ignore[arg-type]
+        prompt="A test image",
+        timeout_seconds=5,
+    )
+    variation = image_ops.generate_image_variations(
+        context=context,  # type: ignore[arg-type]
+        image=b"image",
+        timeout_seconds=5,
+    )
+
+    assert generated == "https://example.com/image.png"
+    assert variation == "https://example.com/variation.png"
+    assert images.generate.call_args.kwargs["model"] == "image-deployment"
+    assert images.create_variation.call_args.kwargs["model"] == "image-deployment"

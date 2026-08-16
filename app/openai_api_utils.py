@@ -1,7 +1,6 @@
 from typing import Optional, Dict, Union
 
 from openai import OpenAI
-from openai.lib.azure import AzureOpenAI
 
 
 def is_reasoning_model(model: Optional[str]) -> bool:
@@ -34,6 +33,30 @@ def normalize_base_url(value: Optional[str]) -> Optional[str]:
         return None
     trimmed = value.strip()
     return trimmed or None
+
+
+def azure_v1_base_url(value: Optional[str]) -> str:
+    """Returns an Azure OpenAI v1 base URL for the configured resource."""
+    base_url = normalize_base_url(value)
+    if base_url is None or base_url.rstrip("/") == "https://api.openai.com/v1":
+        raise ValueError(
+            "OPENAI_API_BASE must be set to an Azure OpenAI resource endpoint"
+        )
+    base_url = base_url.rstrip("/")
+    if base_url.endswith("/openai/v1"):
+        return f"{base_url}/"
+    return f"{base_url}/openai/v1/"
+
+
+def request_model(
+    model: str,
+    openai_api_type: Optional[str],
+    openai_deployment_id: Optional[str],
+) -> str:
+    """Returns the model or Azure deployment name used by the request."""
+    if openai_api_type == "azure" and openai_deployment_id:
+        return openai_deployment_id
+    return model
 
 
 def token_budget_kwarg(model: Optional[str], budget: int) -> Dict[str, int]:
@@ -72,16 +95,12 @@ def build_openai_client(
     openai_api_key: str,
     openai_api_type: Optional[str],
     openai_api_base: Optional[str],
-    openai_api_version: Optional[str],
-    openai_deployment_id: Optional[str],
     openai_organization_id: Optional[str] = None,
-) -> Union[OpenAI, AzureOpenAI]:
+) -> OpenAI:
     if openai_api_type == "azure":
-        return AzureOpenAI(
+        return OpenAI(
             api_key=openai_api_key,
-            api_version=openai_api_version,
-            azure_endpoint=openai_api_base,
-            azure_deployment=openai_deployment_id,
+            base_url=azure_v1_base_url(openai_api_base),
         )
     return OpenAI(
         api_key=openai_api_key,

@@ -6,6 +6,7 @@ from io import BytesIO
 from PIL import Image
 
 from app.openai_ops import create_openai_client
+from app.openai_api_utils import request_model
 from app.slack_ops import download_slack_image_content
 from slack_bolt import BoltContext
 
@@ -67,7 +68,11 @@ def generate_image(
 ) -> str:
     client = create_openai_client(context)
     response = client.images.generate(
-        model=context["OPENAI_IMAGE_GENERATION_MODEL"],
+        model=request_model(
+            context["OPENAI_IMAGE_GENERATION_MODEL"],
+            context.get("OPENAI_API_TYPE"),
+            context.get("OPENAI_DEPLOYMENT_ID"),
+        ),
         prompt=prompt,
         size=size,
         quality=quality,
@@ -87,7 +92,11 @@ def generate_image_variations(
 ) -> str:
     client = create_openai_client(context)
     response = client.images.create_variation(
-        model="dall-e-2",
+        model=request_model(
+            "dall-e-2",
+            context.get("OPENAI_API_TYPE"),
+            context.get("OPENAI_DEPLOYMENT_ID"),
+        ),
         image=BytesIO(image),
         size=size,
         timeout=timeout_seconds,
