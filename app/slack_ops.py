@@ -371,7 +371,7 @@ def can_send_image_url_to_openai(context: BoltContext) -> bool:
     openai_model = context.get("OPENAI_MODEL")
     # More supported models will come. This logic will need to be updated then.
     can_send_image_url = openai_model is not None and (
-        openai_model == "chat-latest"
+        openai_model in ("chat-latest", "gpt-6-astra", "gpt-6-sol", "gpt-6-luna")
         or openai_model.startswith("gpt-4o")
         or openai_model.startswith("gpt-4.1")
         or openai_model.startswith("gpt-5")

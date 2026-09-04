@@ -65,6 +65,18 @@ def test_sampling_and_token_budget_for_gpt_5_6_models():
         assert sampling == {}
 
 
+def test_gpt_6_sol_and_luna_request_kwargs():
+    for model in ("gpt-6-sol", "gpt-6-luna"):
+        assert api_utils.token_budget_kwarg(model, 1024) == {
+            "max_completion_tokens": 1024
+        }
+        assert api_utils.sampling_kwargs(model, 0.75) == {}
+        assert api_utils.reasoning_effort_kwargs(model) == {}
+        assert api_utils.reasoning_effort_kwargs(model, function_calling=True) == {
+            "reasoning_effort": "none"
+        }
+
+
 def test_reasoning_effort_for_gpt_5_6_luna():
     assert api_utils.reasoning_effort_kwargs("gpt-5.6-luna") == {
         "reasoning_effort": "none"

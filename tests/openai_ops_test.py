@@ -14,6 +14,8 @@ from app.openai_constants import (
     GPT_5_6_SOL_MODEL,
     GPT_5_6_TERRA_MODEL,
     GPT_5_6_LUNA_MODEL,
+    GPT_6_SOL_MODEL,
+    GPT_6_LUNA_MODEL,
     MAX_TOKENS,
 )
 import pytest
@@ -164,6 +166,10 @@ def test_messages_within_context_window_passes_model(monkeypatch):
         ("gpt-5.4", True),
         ("gpt-5.4-mini", True),
         ("gpt-5.4-nano", True),
+        ("gpt-6-astra", True),
+        ("GPT-6-ASTRA", True),
+        (GPT_6_SOL_MODEL, True),
+        (GPT_6_LUNA_MODEL, True),
         ("gpt-5.5", True),
         ("gpt-5.5-2026-04-23", True),
         (GPT_5_6_MODEL, True),
@@ -194,6 +200,9 @@ def test_is_reasoning_heuristics(model, expected):
         ("gpt-5.2-chat-latest", False, 0.55, 11, "U678"),
         (GPT_5_3_CHAT_LATEST_MODEL, False, 0.55, 11, "U789"),
         (GPT_5_4_MODEL, True, 0.55, 11, "U890"),
+        ("gpt-6-astra", True, 0.55, 11, "U903"),
+        (GPT_6_SOL_MODEL, True, 0.55, 11, "U904"),
+        (GPT_6_LUNA_MODEL, True, 0.55, 11, "U905"),
         (GPT_5_5_MODEL, True, 0.55, 11, "U895"),
         (GPT_5_6_MODEL, True, 0.55, 11, "U896"),
         (GPT_5_6_SOL_MODEL, True, 0.55, 11, "U897"),
@@ -321,7 +330,9 @@ def test_sync_tokens_and_sampling_behavior(
 
 @pytest.mark.parametrize("api_type", ["openai", "azure"])
 @pytest.mark.parametrize("with_functions", [True, False])
-@pytest.mark.parametrize("model", [GPT_4O_MODEL, GPT_5_6_LUNA_MODEL])
+@pytest.mark.parametrize(
+    "model", [GPT_4O_MODEL, GPT_5_6_LUNA_MODEL, GPT_6_SOL_MODEL, GPT_6_LUNA_MODEL]
+)
 def test_stream_functions_and_timeout(
     fake_clients, api_type, with_functions, model, monkeypatch
 ):
@@ -365,6 +376,8 @@ def test_stream_functions_and_timeout(
     if model == GPT_5_6_LUNA_MODEL:
         expected_effort = "low" if with_functions and api_type == "openai" else "none"
         assert kwargs.get("reasoning_effort") == expected_effort
+    elif model in (GPT_6_SOL_MODEL, GPT_6_LUNA_MODEL) and with_functions:
+        assert kwargs.get("reasoning_effort") == "none"
     else:
         assert "reasoning_effort" not in kwargs
 

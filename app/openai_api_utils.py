@@ -17,6 +17,7 @@ def is_reasoning_model(model: Optional[str]) -> bool:
         or ml.startswith("o3")
         or ml.startswith("o4")
         or ml.startswith("gpt-5")
+        or ml in ("gpt-6-astra", "gpt-6-sol", "gpt-6-luna")
     )
 
 
@@ -96,7 +97,9 @@ def reasoning_effort_kwargs(
     function_calling: bool = False,
     openai_api_type: Optional[str] = None,
 ) -> Dict[str, str]:
-    """Returns compatible low-latency reasoning settings for Luna requests."""
+    """Returns model-specific reasoning settings for Chat Completions."""
+    if function_calling and model and model.lower() in ("gpt-6-sol", "gpt-6-luna"):
+        return {"reasoning_effort": "none"}
     if model and model.lower() == "gpt-5.6-luna":
         effort = "low" if function_calling and openai_api_type != "azure" else "none"
         return {"reasoning_effort": effort}
