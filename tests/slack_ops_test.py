@@ -365,3 +365,18 @@ def test_final_claim_blocks_concurrent_sends():
     text_hash = "hash"
     assert slack_ops._CACHE.try_claim_final_send(root_ts, text_hash) is True
     assert slack_ops._CACHE.try_claim_final_send(root_ts, text_hash) is False
+
+
+@pytest.mark.parametrize(
+    "enabled,scopes,expected",
+    [(True, ("files:read",), True), (False, ("files:read",), False), (True, (), False)],
+)
+@pytest.mark.parametrize("model", ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"])
+def test_gpt_6_image_access(monkeypatch, enabled, scopes, expected, model):
+    monkeypatch.setattr(slack_ops, "IMAGE_FILE_ACCESS_ENABLED", enabled)
+    assert (
+        slack_ops.can_send_image_url_to_openai(
+            make_context(model=model, bot_scopes=scopes)
+        )
+        is expected
+    )
