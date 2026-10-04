@@ -22,6 +22,7 @@ from app.openai_api_utils import (
     request_model,
     reasoning_effort_kwargs,
     sampling_kwargs,
+    supports_chat_completions_functions,
     token_budget_kwarg,
 )
 from app.openai_constants import (
@@ -42,6 +43,19 @@ FUNCTION_CALL_TOKEN_BUDGET = 1024
 # ----------------------------
 
 _prompt_tokens_used_by_function_call_cache: Optional[int] = None
+
+
+def _validate_function_calling(
+    model: Optional[str], function_call_module_name: Optional[str]
+) -> None:
+    if (
+        function_call_module_name is not None
+        and not supports_chat_completions_functions(model)
+    ):
+        raise ValueError(
+            "GPT-6.1 Sol cannot be used while tools are enabled. "
+            "Please choose another model."
+        )
 
 
 # Format message from Slack to send to OpenAI
@@ -96,7 +110,7 @@ def _is_reasoning(model: str) -> bool:
     """Returns True if the model is a reasoning model under Chat Completions.
 
     Excludes chat models like gpt-5-chat-latest, gpt-5.1-chat-latest, gpt-5.2-chat-latest, and gpt-5-search-api.
-    Matches o3*, o4*, and non-chat gpt-5* families. Case-insensitive and safe with None/empty.
+    Matches o3*, o4*, non-chat gpt-5* families, and the GPT-6 family. Case-insensitive and safe with None/empty.
     """
     return is_reasoning_model(model)
 
@@ -156,6 +170,7 @@ def _create_chat_completion(
     relevant to their respective behavior (e.g., timeout for sync only,
     function calls for streaming only).
     """
+    _validate_function_calling(model, function_call_module_name)
     client = build_openai_client(
         openai_api_key=openai_api_key,
         openai_api_type=openai_api_type,
@@ -546,6 +561,8 @@ def calculate_tokens_necessary_for_function_call(context: BoltContext) -> int:
     function_call_module_name = context.get("OPENAI_FUNCTION_CALL_MODULE_NAME")
     if function_call_module_name is None:
         return 0
+
+    _validate_function_calling(context.get("OPENAI_MODEL"), function_call_module_name)
 
     global _prompt_tokens_used_by_function_call_cache
     if _prompt_tokens_used_by_function_call_cache is not None:

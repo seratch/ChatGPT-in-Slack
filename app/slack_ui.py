@@ -3,6 +3,7 @@ from typing import Optional, List
 from slack_bolt import BoltContext
 from slack_sdk.errors import SlackApiError
 from app.i18n import translate
+from app.openai_api_utils import supports_chat_completions_functions
 from app.openai_constants import (
     GPT_4O_MODEL,
     GPT_4O_MINI_MODEL,
@@ -16,6 +17,7 @@ from app.openai_constants import (
     GPT_6_ASTRA_MODEL,
     GPT_6_SOL_MODEL,
     GPT_6_LUNA_MODEL,
+    GPT_6_1_SOL_MODEL,
     GPT_5_6_SOL_MODEL,
     GPT_5_6_TERRA_MODEL,
     GPT_5_6_LUNA_MODEL,
@@ -33,7 +35,6 @@ from app.openai_constants import (
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
-
 
 # ----------------------------
 # Translate
@@ -469,6 +470,10 @@ def build_configure_modal(context: BoltContext) -> dict:
             "value": GPT_6_SOL_MODEL,
         },
         {
+            "text": {"type": "plain_text", "text": "GPT-6.1 Sol"},
+            "value": GPT_6_1_SOL_MODEL,
+        },
+        {
             "text": {"type": "plain_text", "text": "GPT-6 Luna"},
             "value": GPT_6_LUNA_MODEL,
         },
@@ -561,7 +566,15 @@ def build_configure_modal(context: BoltContext) -> dict:
             "value": O4_MINI_MODEL,
         },
     ]
-    return {
+    tools_enabled = context.get("OPENAI_FUNCTION_CALL_MODULE_NAME") is not None
+    saved_model_unavailable = tools_enabled and not supports_chat_completions_functions(
+        saved_model
+    )
+    if tools_enabled:
+        options = [
+            opt for opt in options if supports_chat_completions_functions(opt["value"])
+        ]
+    modal = {
         "type": "modal",
         "callback_id": "configure",
         "title": {"type": "plain_text", "text": "OpenAI API Key"},
@@ -598,12 +611,33 @@ def build_configure_modal(context: BoltContext) -> dict:
                             )
                         }
                         if already_set_api_key is not None
-                        else {"initial_option": options[0]}
+                        and not saved_model_unavailable
+                        else (
+                            {}
+                            if saved_model_unavailable
+                            else {"initial_option": options[0]}
+                        )
                     ),
                 },
             },
         ],
     }
+    if saved_model_unavailable:
+        text = (
+            "GPT-6.1 Sol cannot be used while tools are enabled. "
+            "Please choose another model before submitting."
+        )
+        if already_set_api_key is not None:
+            text = (
+                translate(
+                    openai_api_key=already_set_api_key, context=context, text=text
+                )
+                or text
+            )
+        modal["blocks"].append(
+            {"type": "context", "elements": [{"type": "mrkdwn", "text": text}]}
+        )
+    return modal
 
 
 #

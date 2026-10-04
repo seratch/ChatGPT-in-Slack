@@ -23,6 +23,7 @@ from app.openai_constants import (
     GPT_5_6_SOL_MODEL,
     GPT_5_6_TERRA_MODEL,
     GPT_5_6_LUNA_MODEL,
+    GPT_6_1_SOL_MODEL,
 )
 
 def test_alias_resolution():
@@ -148,3 +149,20 @@ def test_gpt_6_model_support():
             )
             > 0
         )
+
+
+def test_gpt_6_1_sol_model_support():
+    """Ensures GPT-6.1 Sol is registered with its own model metadata."""
+    from app.openai_ops import calculate_num_tokens, context_length
+
+    assert resolve_model_alias(GPT_6_1_SOL_MODEL) == GPT_6_1_SOL_MODEL
+    assert GPT_6_1_SOL_MODEL not in MODEL_FALLBACKS
+    assert MODEL_TOKENS[GPT_6_1_SOL_MODEL] == (3, 1)
+    assert MODEL_CONTEXT_LENGTHS[GPT_6_1_SOL_MODEL] == 272000
+    assert context_length(GPT_6_1_SOL_MODEL) == 272000
+    assert (
+        calculate_num_tokens(
+            messages=[{"role": "user", "content": "hello"}], model=GPT_6_1_SOL_MODEL
+        )
+        > 0
+    )

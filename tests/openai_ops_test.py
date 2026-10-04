@@ -16,6 +16,7 @@ from app.openai_constants import (
     GPT_5_6_LUNA_MODEL,
     GPT_6_SOL_MODEL,
     GPT_6_LUNA_MODEL,
+    GPT_6_1_SOL_MODEL,
     MAX_TOKENS,
 )
 import pytest
@@ -170,6 +171,8 @@ def test_messages_within_context_window_passes_model(monkeypatch):
         ("GPT-6-ASTRA", True),
         (GPT_6_SOL_MODEL, True),
         (GPT_6_LUNA_MODEL, True),
+        (GPT_6_1_SOL_MODEL, True),
+        ("GPT-6.1-SOL", True),
         ("gpt-5.5", True),
         ("gpt-5.5-2026-04-23", True),
         (GPT_5_6_MODEL, True),
@@ -203,6 +206,7 @@ def test_is_reasoning_heuristics(model, expected):
         ("gpt-6-astra", True, 0.55, 11, "U903"),
         (GPT_6_SOL_MODEL, True, 0.55, 11, "U904"),
         (GPT_6_LUNA_MODEL, True, 0.55, 11, "U905"),
+        (GPT_6_1_SOL_MODEL, True, 0.55, 11, "U906"),
         (GPT_5_5_MODEL, True, 0.55, 11, "U895"),
         (GPT_5_6_MODEL, True, 0.55, 11, "U896"),
         (GPT_5_6_SOL_MODEL, True, 0.55, 11, "U897"),
@@ -331,7 +335,14 @@ def test_sync_tokens_and_sampling_behavior(
 @pytest.mark.parametrize("api_type", ["openai", "azure"])
 @pytest.mark.parametrize("with_functions", [True, False])
 @pytest.mark.parametrize(
-    "model", [GPT_4O_MODEL, GPT_5_6_LUNA_MODEL, GPT_6_SOL_MODEL, GPT_6_LUNA_MODEL]
+    "model",
+    [
+        GPT_4O_MODEL,
+        GPT_5_6_LUNA_MODEL,
+        GPT_6_SOL_MODEL,
+        GPT_6_LUNA_MODEL,
+        GPT_6_1_SOL_MODEL,
+    ],
 )
 def test_stream_functions_and_timeout(
     fake_clients, api_type, with_functions, model, monkeypatch
@@ -350,6 +361,24 @@ def test_stream_functions_and_timeout(
     else:
         if module_name in sys.modules:
             del sys.modules[module_name]
+
+    if model == GPT_6_1_SOL_MODEL and with_functions:
+        with pytest.raises(ValueError, match="cannot be used while tools are enabled"):
+            ops.start_receiving_openai_response(
+                openai_api_key="k",
+                model=model,
+                temperature=0.5,
+                messages=[{"role": "user", "content": "hi"}],
+                user="U345",
+                openai_api_type=api_type,
+                openai_api_base="https://api.example/v1",
+                openai_deployment_id="dep-xyz" if api_type == "azure" else "",
+                openai_organization_id=None,
+                function_call_module_name=module_name,
+            )
+        assert "init_openai_kwargs" not in fake_clients
+        assert "create_kwargs" not in fake_clients
+        return
 
     _ = ops.start_receiving_openai_response(
         openai_api_key="k",
@@ -463,6 +492,29 @@ def test_function_call_token_probe_uses_luna_reasoning_effort(
     assert ops.calculate_tokens_necessary_for_function_call(FakeContext()) == 5
     assert calls[0]["reasoning_effort"] == expected_function_effort
     assert calls[1]["reasoning_effort"] == "none"
+
+
+@pytest.mark.parametrize("model", [GPT_6_1_SOL_MODEL, "GPT-6.1-SOL"])
+@pytest.mark.parametrize("cached_tokens", [None, 5])
+def test_gpt_6_1_sol_function_probe_rejected_before_cache_or_request(
+    monkeypatch, model, cached_tokens
+):
+    def unexpected_call(*args, **kwargs):
+        pytest.fail(
+            "Unsupported tool calls must be rejected before importing or requesting"
+        )
+
+    monkeypatch.setattr(
+        ops, "_prompt_tokens_used_by_function_call_cache", cached_tokens
+    )
+    monkeypatch.setattr(ops, "import_module", unexpected_call)
+    monkeypatch.setattr(ops, "create_openai_client", unexpected_call)
+    context = {
+        "OPENAI_MODEL": model,
+        "OPENAI_FUNCTION_CALL_MODULE_NAME": "app.fake_functions_mod",
+    }
+    with pytest.raises(ValueError, match="cannot be used while tools are enabled"):
+        ops.calculate_tokens_necessary_for_function_call(context)
 
 
 def test_stream_timeout_guard_raises(fake_clients):

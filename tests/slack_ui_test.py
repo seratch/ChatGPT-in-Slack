@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+import pytest
 
 from app.slack_ui import build_configure_modal
 from app.openai_constants import (
@@ -10,6 +11,7 @@ from app.openai_constants import (
     GPT_6_ASTRA_MODEL,
     GPT_6_SOL_MODEL,
     GPT_6_LUNA_MODEL,
+    GPT_6_1_SOL_MODEL,
     GPT_5_6_SOL_MODEL,
     GPT_5_6_TERRA_MODEL,
     GPT_5_6_LUNA_MODEL,
@@ -17,13 +19,14 @@ from app.openai_constants import (
 )
 
 
-def make_context(*, api_key=None, model=None):
+def make_context(*, api_key=None, model=None, function_module=None):
     context = MagicMock()
 
     def _get(key, default=None):
         values = {
             "OPENAI_API_KEY": api_key,
             "OPENAI_MODEL": model,
+            "OPENAI_FUNCTION_CALL_MODULE_NAME": function_module,
         }
         return values.get(key, default)
 
@@ -37,10 +40,11 @@ def test_build_configure_modal_includes_new_models():
     options = modal["blocks"][1]["element"]["options"]
     values = [option["value"] for option in options]
 
-    assert values[:14] == [
+    assert values[:15] == [
         GPT_5_6_SOL_MODEL,
         GPT_6_ASTRA_MODEL,
         GPT_6_SOL_MODEL,
+        GPT_6_1_SOL_MODEL,
         GPT_6_LUNA_MODEL,
         GPT_5_6_TERRA_MODEL,
         GPT_5_6_LUNA_MODEL,
@@ -53,6 +57,51 @@ def test_build_configure_modal_includes_new_models():
         "gpt-5.2-chat-latest",
         "gpt-5.2",
     ]
+
+
+@pytest.mark.parametrize("saved_model", [GPT_6_1_SOL_MODEL, GPT_6_SOL_MODEL, None])
+def test_configure_modal_filters_gpt_6_1_sol_with_functions(monkeypatch, saved_model):
+    monkeypatch.setattr("app.slack_ui.translate", lambda *, text, **kwargs: text)
+    modal = build_configure_modal(
+        make_context(api_key="sk-test", model=saved_model, function_module="app.tools")
+    )
+    element = modal["blocks"][1]["element"]
+    values = [option["value"] for option in element["options"]]
+    assert GPT_6_1_SOL_MODEL not in values
+    assert GPT_6_SOL_MODEL in values
+    assert GPT_6_LUNA_MODEL in values
+    if saved_model == GPT_6_1_SOL_MODEL:
+        assert "initial_option" not in element
+        assert not modal["blocks"][1].get("optional", False)
+        assert (
+            "Please choose another model" in modal["blocks"][2]["elements"][0]["text"]
+        )
+    else:
+        assert len(modal["blocks"]) == 2
+        assert element["initial_option"]["value"] == (
+            GPT_6_SOL_MODEL if saved_model == GPT_6_SOL_MODEL else GPT_5_6_SOL_MODEL
+        )
+
+
+@pytest.mark.parametrize("translated_warning", [None, ""])
+def test_configure_modal_preserves_warning_when_translation_is_empty(
+    monkeypatch, translated_warning
+):
+    monkeypatch.setattr(
+        "app.slack_ui.translate",
+        lambda *, text, **kwargs: (
+            translated_warning if text.startswith("GPT-6.1 Sol") else text
+        ),
+    )
+    modal = build_configure_modal(
+        make_context(
+            api_key="sk-test", model=GPT_6_1_SOL_MODEL, function_module="app.tools"
+        )
+    )
+    assert modal["blocks"][2]["elements"][0]["text"] == (
+        "GPT-6.1 Sol cannot be used while tools are enabled. "
+        "Please choose another model before submitting."
+    )
 
 
 def test_build_configure_modal_keeps_saved_model_selected(monkeypatch):

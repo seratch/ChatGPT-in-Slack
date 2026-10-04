@@ -17,7 +17,7 @@ def is_reasoning_model(model: Optional[str]) -> bool:
         or ml.startswith("o3")
         or ml.startswith("o4")
         or ml.startswith("gpt-5")
-        or ml in ("gpt-6-astra", "gpt-6-sol", "gpt-6-luna")
+        or ml in ("gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol")
     )
 
 
@@ -91,6 +91,11 @@ def sampling_kwargs(
     }
 
 
+def supports_chat_completions_functions(model: Optional[str]) -> bool:
+    """Returns whether the model can use this app's Chat Completions tools."""
+    return model is None or model.lower() != "gpt-6.1-sol"
+
+
 def reasoning_effort_kwargs(
     model: Optional[str],
     *,
@@ -98,6 +103,7 @@ def reasoning_effort_kwargs(
     openai_api_type: Optional[str] = None,
 ) -> Dict[str, str]:
     """Returns model-specific reasoning settings for Chat Completions."""
+    # GPT-6.1 Sol uses Responses for tools and does not support "none" effort.
     if function_calling and model and model.lower() in ("gpt-6-sol", "gpt-6-luna"):
         return {"reasoning_effort": "none"}
     if model and model.lower() == "gpt-5.6-luna":
