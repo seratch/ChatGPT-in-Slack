@@ -371,7 +371,9 @@ def test_final_claim_blocks_concurrent_sends():
     "enabled,scopes,expected",
     [(True, ("files:read",), True), (False, ("files:read",), False), (True, (), False)],
 )
-@pytest.mark.parametrize("model", ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna"])
+@pytest.mark.parametrize(
+    "model", ["gpt-6-astra", "gpt-6-sol", "gpt-6-luna", "gpt-6.1-sol"]
+)
 def test_gpt_6_image_access(monkeypatch, enabled, scopes, expected, model):
     monkeypatch.setattr(slack_ops, "IMAGE_FILE_ACCESS_ENABLED", enabled)
     assert (

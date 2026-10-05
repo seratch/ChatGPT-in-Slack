@@ -77,6 +77,22 @@ def test_gpt_6_sol_and_luna_request_kwargs():
         }
 
 
+def test_gpt_6_1_sol_request_kwargs():
+    assert api_utils.token_budget_kwarg("gpt-6.1-sol", 1024) == {
+        "max_completion_tokens": 1024
+    }
+    assert api_utils.sampling_kwargs("gpt-6.1-sol", 0.75) == {}
+    assert api_utils.reasoning_effort_kwargs("gpt-6.1-sol") == {}
+    # gpt-6.1-sol rejects the "none" effort, so tool calling must not request it.
+    assert api_utils.reasoning_effort_kwargs("gpt-6.1-sol", function_calling=True) == {}
+    assert (
+        api_utils.reasoning_effort_kwargs(
+            "gpt-6.1-sol", function_calling=True, openai_api_type="azure"
+        )
+        == {}
+    )
+
+
 def test_reasoning_effort_for_gpt_5_6_luna():
     assert api_utils.reasoning_effort_kwargs("gpt-5.6-luna") == {
         "reasoning_effort": "none"
