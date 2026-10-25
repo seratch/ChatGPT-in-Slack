@@ -120,6 +120,59 @@ def test_msg_too_long_fallback_sends_only_tail():
     assert client.chat_postMessage.call_args.kwargs["text"] == tail
 
 
+def test_msg_too_long_fallback_keeps_code_block_formatting():
+    client = make_client(
+        chat_update_side_effect=[
+            SlackApiError("err", {"error": "msg_too_long"}),
+            {"ok": True},
+        ]
+    )
+    prefix = "Here you go:\n```\nline 1\n"
+    tail = "line 2\n```\nDone."
+
+    slack_ops._CACHE.remember_sent_text("TS1", prefix)
+
+    slack_ops.update_wip_message(
+        client=client,
+        channel="C1",
+        ts="TS1",
+        text=prefix + tail,
+        messages=[],
+        user="U1",
+        is_final=True,
+        root_thread_ts="ROOT",
+    )
+
+    # The code block is closed at the end of the first message and reopened in the tail
+    assert client.chat_update.call_args_list[1].kwargs["text"] == prefix + "```"
+    client.chat_postMessage.assert_called_once()
+    assert client.chat_postMessage.call_args.kwargs["text"] == "```\n" + tail
+
+
+def test_final_long_code_block_is_reopened_in_every_chunk():
+    client = make_client(chat_update_side_effect=SlackApiError("err", {"error": "msg_too_long"}))
+    code = "x" * (SLACK_POST_MESSAGE_BYTE_LIMIT * 2)
+    text = "```\n" + code + "\n```"
+
+    slack_ops.update_wip_message(
+        client=client,
+        channel="C1",
+        ts="TS1",
+        text=text,
+        messages=[],
+        user="U1",
+        is_final=True,
+        root_thread_ts="ROOT",
+    )
+
+    sent = [call.kwargs["text"] for call in client.chat_postMessage.mock_calls]
+    assert len(sent) == 3
+    for chunk in sent:
+        assert chunk.startswith("```\n")
+        assert chunk.endswith("\n```")
+    assert "".join(chunk[4:-4] for chunk in sent).replace("\n", "") == code
+
+
 def test_msg_too_long_without_prior_posts_full():
     client = make_client(chat_update_side_effect=SlackApiError("err", {"error": "msg_too_long"}))
     full_text = "complete"

@@ -187,7 +187,7 @@ def update_wip_message(
                 client.chat_update(
                     channel=channel,
                     ts=ts,
-                    text=candidate_prefix,
+                    text=_close_code_block(candidate_prefix, False),
                     metadata={
                         "event_type": "chat-gpt-convo",
                         "event_payload": metadata_payload,
@@ -206,12 +206,16 @@ def update_wip_message(
             return None
 
         chunks = _split_slack_text(remainder, byte_limit=SLACK_POST_MESSAGE_BYTE_LIMIT)
+        # Keep code blocks rendered in every message when a block spans a split point.
+        in_code_block = _ends_in_code_block(sent_prefix or "", False)
         response: SlackResponse = None  # type: ignore
         for chunk in chunks:
+            chunk_text = _close_code_block(chunk, in_code_block)
+            in_code_block = _ends_in_code_block(chunk, in_code_block)
             response = client.chat_postMessage(
                 channel=channel,
                 thread_ts=root_ts,
-                text=chunk,
+                text=chunk_text,
                 metadata={
                     "event_type": "chat-gpt-convo",
                     "event_payload": metadata_payload,
@@ -252,6 +256,22 @@ def _split_slack_text(text: str, *, byte_limit: int = SLACK_POST_MESSAGE_BYTE_LI
     if not chunks:
         return [""]
     return chunks
+
+
+def _ends_in_code_block(text: str, starts_in_code_block: bool) -> bool:
+    """Return True if a ``` code block is still open at the end of text."""
+
+    return starts_in_code_block != (text.count("```") % 2 == 1)
+
+
+def _close_code_block(text: str, starts_in_code_block: bool) -> str:
+    """Reopen/close a ``` code block that continues across message boundaries."""
+
+    if starts_in_code_block:
+        text = "```\n" + text
+    if _ends_in_code_block(text, False):
+        text = text + ("" if text.endswith("\n") else "\n") + "```"
+    return text
 
 
 def _common_prefix(a: str, b: str) -> str:
