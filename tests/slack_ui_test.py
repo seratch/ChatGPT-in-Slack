@@ -3,7 +3,6 @@ import pytest
 
 from app.slack_ui import build_configure_modal
 from app.openai_constants import (
-    GPT_5_3_CHAT_LATEST_MODEL,
     GPT_5_4_MODEL,
     GPT_5_4_MINI_MODEL,
     GPT_5_4_NANO_MODEL,
@@ -19,13 +18,17 @@ from app.openai_constants import (
 )
 
 
-def make_context(*, api_key=None, model=None, function_module=None):
+def make_context(
+    *, api_key=None, model=None, function_module=None, api_type=None, api_base=None
+):
     context = MagicMock()
 
     def _get(key, default=None):
         values = {
             "OPENAI_API_KEY": api_key,
             "OPENAI_MODEL": model,
+            "OPENAI_API_TYPE": api_type,
+            "OPENAI_API_BASE": api_base,
             "OPENAI_FUNCTION_CALL_MODULE_NAME": function_module,
         }
         return values.get(key, default)
@@ -40,7 +43,7 @@ def test_build_configure_modal_includes_new_models():
     options = modal["blocks"][1]["element"]["options"]
     values = [option["value"] for option in options]
 
-    assert values[:15] == [
+    assert values[:13] == [
         GPT_5_6_SOL_MODEL,
         GPT_6_ASTRA_MODEL,
         GPT_6_SOL_MODEL,
@@ -53,8 +56,6 @@ def test_build_configure_modal_includes_new_models():
         GPT_5_4_MODEL,
         GPT_5_4_MINI_MODEL,
         GPT_5_4_NANO_MODEL,
-        GPT_5_3_CHAT_LATEST_MODEL,
-        "gpt-5.2-chat-latest",
         "gpt-5.2",
     ]
 
@@ -109,10 +110,57 @@ def test_build_configure_modal_keeps_saved_model_selected(monkeypatch):
         "app.slack_ui.translate",
         lambda *, text, **kwargs: text,
     )
-    modal = build_configure_modal(
-        make_context(api_key="sk-test", model=GPT_5_3_CHAT_LATEST_MODEL)
-    )
+    modal = build_configure_modal(make_context(api_key="sk-test", model=GPT_5_4_MODEL))
 
     initial_option = modal["blocks"][1]["element"]["initial_option"]
 
-    assert initial_option["value"] == GPT_5_3_CHAT_LATEST_MODEL
+    assert initial_option["value"] == GPT_5_4_MODEL
+
+
+@pytest.mark.parametrize(
+    "model",
+    [
+        "gpt-5-chat-latest",
+        "gpt-5.1-chat-latest",
+        "gpt-5.2-chat-latest",
+        "gpt-5.3-chat-latest",
+        "o4-mini",
+    ],
+)
+def test_configure_modal_requires_new_selection_for_retired_model(model):
+    modal = build_configure_modal(
+        make_context(
+            api_key="sk-test", model=model, api_base="https://api.openai.com/v1/"
+        )
+    )
+
+    element = modal["blocks"][1]["element"]
+    values = [option["value"] for option in element["options"]]
+    assert model not in values
+    assert "o3" in values
+    assert "initial_option" not in element
+    assert not modal["blocks"][1].get("optional", False)
+    assert f"OpenAI has retired {model}." in modal["blocks"][2]["elements"][0]["text"]
+
+
+@pytest.mark.parametrize(
+    "api_type,api_base",
+    [
+        ("azure", "https://demo.openai.azure.com"),
+        (None, "https://other-provider.example/v1"),
+    ],
+)
+def test_configure_modal_preserves_legacy_options_for_other_endpoints(
+    api_type, api_base
+):
+    model = "gpt-5.3-chat-latest"
+    modal = build_configure_modal(
+        make_context(
+            api_key="sk-test", model=model, api_type=api_type, api_base=api_base
+        )
+    )
+
+    element = modal["blocks"][1]["element"]
+    assert model in [option["value"] for option in element["options"]]
+    assert element["initial_option"]["value"] == model
+    assert len(modal["blocks"]) == 2

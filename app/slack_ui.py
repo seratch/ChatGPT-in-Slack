@@ -3,7 +3,7 @@ from typing import Optional, List
 from slack_bolt import BoltContext
 from slack_sdk.errors import SlackApiError
 from app.i18n import translate
-from app.openai_api_utils import supports_chat_completions_functions
+from app.openai_api_utils import normalize_base_url, supports_chat_completions_functions
 from app.openai_constants import (
     GPT_4O_MODEL,
     GPT_4O_MINI_MODEL,
@@ -35,6 +35,17 @@ from app.openai_constants import (
 )
 from app.slack_constants import TIMEOUT_ERROR_MESSAGE, MAX_MESSAGE_LENGTH
 from app.slack_ops import extract_state_value
+
+# The public OpenAI API no longer serves these IDs. Keep the legacy options
+# for other endpoints, where the same names may still refer to live deployments.
+_RETIRED_OPENAI_MODELS = {
+    GPT_5_CHAT_LATEST_MODEL,
+    GPT_5_1_CHAT_LATEST_MODEL,
+    GPT_5_2_CHAT_LATEST_MODEL,
+    GPT_5_3_CHAT_LATEST_MODEL,
+    O4_MINI_MODEL,
+}
+
 
 # ----------------------------
 # Translate
@@ -566,9 +577,17 @@ def build_configure_modal(context: BoltContext) -> dict:
             "value": O4_MINI_MODEL,
         },
     ]
+    base_url = normalize_base_url(context.get("OPENAI_API_BASE"))
+    direct_openai = context.get("OPENAI_API_TYPE") != "azure" and (
+        base_url is None or base_url.rstrip("/") == "https://api.openai.com/v1"
+    )
+    saved_model_retired = direct_openai and saved_model in _RETIRED_OPENAI_MODELS
+    if direct_openai:
+        options = [opt for opt in options if opt["value"] not in _RETIRED_OPENAI_MODELS]
+
     tools_enabled = context.get("OPENAI_FUNCTION_CALL_MODULE_NAME") is not None
-    saved_model_unavailable = tools_enabled and not supports_chat_completions_functions(
-        saved_model
+    saved_model_unavailable = saved_model_retired or (
+        tools_enabled and not supports_chat_completions_functions(saved_model)
     )
     if tools_enabled:
         options = [
@@ -623,10 +642,16 @@ def build_configure_modal(context: BoltContext) -> dict:
         ],
     }
     if saved_model_unavailable:
-        text = (
-            "GPT-6.1 Sol cannot be used while tools are enabled. "
-            "Please choose another model before submitting."
-        )
+        if saved_model_retired:
+            text = (
+                f"OpenAI has retired {saved_model}. "
+                "Please choose another model before submitting."
+            )
+        else:
+            text = (
+                "GPT-6.1 Sol cannot be used while tools are enabled. "
+                "Please choose another model before submitting."
+            )
         if already_set_api_key is not None:
             text = (
                 translate(
